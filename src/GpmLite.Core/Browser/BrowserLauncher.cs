@@ -211,6 +211,11 @@ public sealed class RunningBrowser : IAsyncDisposable
     public int ProcessId => _process.Id;
     public bool IsRunning => !_process.HasExited;
 
+    /// <summary>Sends a raw CDP command on the browser-level session. Used by cookie import/export
+    /// (e.g. Storage.getCookies / Storage.setCookies), which are browser-wide and need no page attach.</summary>
+    public Task<JsonObject> SendCdpAsync(string method, object? parameters = null, CancellationToken ct = default) =>
+        _cdp.SendAsync(method, parameters, ct: ct);
+
     public event Action<RunningBrowser>? Exited;
     /// <summary>Non-fatal problems (an override the browser refused, a relay error...).</summary>
     public event Action<string>? Warning;
