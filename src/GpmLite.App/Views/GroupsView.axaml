@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GpmLite.App.ViewModels"
+             x:Class="GpmLite.App.Views.GroupsView"
+             x:DataType="vm:GroupsViewModel">
+  <DockPanel>
+    <TextBlock DockPanel.Dock="Top" Classes="h1" Text="Nhóm hồ sơ" Margin="0,0,0,14" />
+    <Border DockPanel.Dock="Top" Classes="card" Padding="12,10" Margin="0,0,0,10">
+      <Grid ColumnDefinitions="320,Auto">
+        <TextBox Watermark="Tên nhóm mới" Text="{Binding NewName}" />
+        <Button Grid.Column="1" Classes="primary" Margin="8,0,0,0" Content="+  Thêm nhóm" Command="{Binding AddCommand}" />
+      </Grid>
+    </Border>
+    <Border Classes="card" ClipToBounds="True">
+      <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Tên nhóm" Binding="{Binding Name}" Width="2*" x:DataType="vm:GroupRow" />
+          <DataGridTextColumn Header="Số hồ sơ" Binding="{Binding Count}" Width="120" x:DataType="vm:GroupRow" />
+          <DataGridTemplateColumn Header="Thao tác" Width="200">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate x:DataType="vm:GroupRow">
+                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="6,0">
+                  <Button Classes="link" Content="Đổi tên"
+                          Command="{Binding $parent[UserControl].((vm:GroupsViewModel)DataContext).RenameCommand}" CommandParameter="{Binding}" />
+                  <Button Classes="link" Foreground="{StaticResource Danger}" Content="Xoá"
+                          Command="{Binding $parent[UserControl].((vm:GroupsViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" />
+                </StackPanel>
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+        </DataGrid.Columns>
+      </DataGrid>
+    </Border>
+  </DockPanel>
+</UserControl>

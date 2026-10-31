@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GpmLite.App/GpmLite.App.csproj" />
+    <Project Path="src/GpmLite.Core/GpmLite.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GpmLite.Core.Tests/GpmLite.Core.Tests.csproj" />
+  </Folder>
+</Solution>

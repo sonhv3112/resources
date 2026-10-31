@@ -1,0 +1,38 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GpmLite.App.ViewModels"
+        x:Class="GpmLite.App.Views.BulkCreateWindow"
+        x:DataType="vm:BulkCreateViewModel"
+        Title="Tạo hồ sơ hàng loạt"
+        Width="560" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+  <StackPanel Margin="20">
+    <Grid ColumnDefinitions="*,16,140">
+      <StackPanel>
+        <TextBlock Classes="label" Text="Tiền tố tên" />
+        <TextBox Text="{Binding Prefix}" />
+      </StackPanel>
+      <StackPanel Grid.Column="2">
+        <TextBlock Classes="label" Text="Số lượng" />
+        <NumericUpDown Value="{Binding CountValue}" Minimum="1" Maximum="1000" FormatString="0" />
+      </StackPanel>
+    </Grid>
+    <Grid ColumnDefinitions="*,16,*">
+      <StackPanel>
+        <TextBlock Classes="label" Text="Nhóm" />
+        <ComboBox ItemsSource="{Binding Groups}" SelectedItem="{Binding SelectedGroup}" HorizontalAlignment="Stretch" />
+      </StackPanel>
+      <StackPanel Grid.Column="2">
+        <TextBlock Classes="label" Text="Hệ điều hành" />
+        <ComboBox ItemsSource="{x:Static vm:ProfileEditorViewModel.OsOptions}" SelectedItem="{Binding SelectedOs}" HorizontalAlignment="Stretch" />
+      </StackPanel>
+    </Grid>
+    <TextBlock Classes="label" Text="Danh sách proxy (tuỳ chọn, mỗi dòng một proxy, gán xoay vòng)" />
+    <TextBox Text="{Binding Proxies}" AcceptsReturn="True" Height="120" FontFamily="Menlo,Consolas,monospace" />
+    <TextBlock Text="{Binding Error}" Foreground="{StaticResource Danger}" Margin="0,8,0,0" TextWrapping="Wrap" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+      <Button Classes="ghost" Content="Huỷ" IsCancel="True" Click="OnCancel" />
+      <Button Classes="primary" Content="Tạo" IsDefault="True" Click="OnCreate" />
+    </StackPanel>
+  </StackPanel>
+</Window>

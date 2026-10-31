@@ -1,0 +1,146 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GpmLite.App.ViewModels"
+        x:Class="GpmLite.App.Views.ProfileEditorWindow"
+        x:DataType="vm:ProfileEditorViewModel"
+        Title="{Binding Title}"
+        Width="780" Height="720" MinWidth="640" MinHeight="520"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource PageBg}">
+  <DockPanel>
+    <!-- Footer -->
+    <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="20,12">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding Error}" Foreground="{StaticResource Danger}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button Classes="ghost" Content="Huỷ" IsCancel="True" Click="OnCancel" />
+          <Button Classes="primary" Content="Lưu hồ sơ" IsDefault="True" Click="OnSave" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <TabControl Margin="12,8,12,0" Padding="0,8,0,0">
+      <!-- General -->
+      <TabItem Header="Chung">
+        <ScrollViewer>
+          <StackPanel Margin="8,0,8,16">
+            <TextBlock Classes="label" Text="Tên hồ sơ" />
+            <TextBox Text="{Binding Name}" />
+            <Grid ColumnDefinitions="*,16,*">
+              <StackPanel>
+                <TextBlock Classes="label" Text="Nhóm" />
+                <ComboBox ItemsSource="{Binding Groups}" SelectedItem="{Binding SelectedGroup}" HorizontalAlignment="Stretch" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="label" Text="Hệ điều hành giả lập" />
+                <ComboBox ItemsSource="{x:Static vm:ProfileEditorViewModel.OsOptions}" SelectedItem="{Binding SelectedOs}" HorizontalAlignment="Stretch" />
+              </StackPanel>
+            </Grid>
+            <Border IsVisible="{Binding OsChangedWarning}" Background="#FFF7ED" BorderBrush="#FDBA74" BorderThickness="1"
+                    CornerRadius="6" Padding="10" Margin="0,10,0,0">
+              <TextBlock TextWrapping="Wrap" Foreground="#9A3412" FontSize="12"
+                         Text="Hệ điều hành khác với máy thật: font chữ và cách render vẫn là của máy thật, các hệ thống chống gian lận lớn có thể phát hiện. Nên giữ đúng hệ điều hành của máy khi có thể." />
+            </Border>
+            <TextBlock Classes="label" Text="Trang mở khi khởi động (phân cách bằng dấu phẩy hoặc xuống dòng)" />
+            <TextBox Text="{Binding StartupUrls}" AcceptsReturn="True" Height="64" Watermark="https://www.google.com" />
+            <TextBlock Classes="label" Text="Ghi chú" />
+            <TextBox Text="{Binding Note}" AcceptsReturn="True" Height="80" TextWrapping="Wrap" />
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- Proxy -->
+      <TabItem Header="Proxy">
+        <StackPanel Margin="8,0,8,16">
+          <TextBlock Classes="label" Text="Proxy (để trống = kết nối trực tiếp)" />
+          <TextBox Text="{Binding Proxy}" FontFamily="Menlo,Consolas,monospace"
+                   Watermark="host:port:user:pass  ·  socks5://user:pass@host:port" />
+          <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
+                     Text="Hỗ trợ HTTP, SOCKS4, SOCKS5 (kể cả có user/pass). DNS được phân giải phía proxy." />
+          <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,12,0,0">
+            <Button Classes="ghost" Content="Kiểm tra proxy" Command="{Binding CheckProxyCommand}" IsEnabled="{Binding !IsCheckingProxy}" />
+            <TextBlock Text="{Binding ProxyCheckResult}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="520" />
+          </StackPanel>
+        </StackPanel>
+      </TabItem>
+
+      <!-- Fingerprint -->
+      <TabItem Header="Fingerprint">
+        <ScrollViewer>
+          <StackPanel Margin="8,0,8,16">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="label" Text="User-Agent" />
+              <Button Grid.Column="1" Classes="ghost" Content="🎲  Ngẫu nhiên fingerprint" Command="{Binding RandomFingerprintCommand}" Margin="0,6,0,4" />
+            </Grid>
+            <TextBox Text="{Binding UserAgent}" TextWrapping="Wrap" FontSize="12" FontFamily="Menlo,Consolas,monospace" />
+
+            <Grid ColumnDefinitions="*,16,*,16,*">
+              <StackPanel>
+                <TextBlock Classes="label" Text="CPU (số nhân)" />
+                <NumericUpDown Value="{Binding HardwareConcurrency}" Minimum="1" Maximum="64" FormatString="0" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="label" Text="RAM (GB)" />
+                <NumericUpDown Value="{Binding DeviceMemory}" Minimum="1" Maximum="8" FormatString="0" />
+              </StackPanel>
+              <StackPanel Grid.Column="4">
+                <TextBlock Classes="label" Text="Độ phân giải" />
+                <TextBox Text="{Binding ScreenText}" />
+              </StackPanel>
+            </Grid>
+
+            <TextBlock Classes="label" Text="WebGL vendor / renderer" />
+            <TextBox Text="{Binding WebGlVendor}" FontSize="12" />
+            <TextBox Text="{Binding WebGlRenderer}" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap" />
+
+            <Grid ColumnDefinitions="*,16,*">
+              <StackPanel>
+                <TextBlock Classes="label" Text="Canvas" />
+                <ComboBox ItemsSource="{x:Static vm:ProfileEditorViewModel.NoiseOptions}" SelectedItem="{Binding Canvas}" HorizontalAlignment="Stretch" />
+                <TextBlock Classes="label" Text="Âm thanh (AudioContext)" />
+                <ComboBox ItemsSource="{x:Static vm:ProfileEditorViewModel.NoiseOptions}" SelectedItem="{Binding Audio}" HorizontalAlignment="Stretch" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="label" Text="WebGL (hình ảnh)" />
+                <ComboBox ItemsSource="{x:Static vm:ProfileEditorViewModel.NoiseOptions}" SelectedItem="{Binding WebGlImage}" HorizontalAlignment="Stretch" />
+                <TextBlock Classes="label" Text="ClientRects" />
+                <ComboBox ItemsSource="{x:Static vm:ProfileEditorViewModel.NoiseOptions}" SelectedItem="{Binding ClientRects}" HorizontalAlignment="Stretch" />
+              </StackPanel>
+            </Grid>
+
+            <Separator Margin="0,16,0,4" />
+
+            <Grid ColumnDefinitions="*,16,*">
+              <StackPanel>
+                <TextBlock Classes="label" Text="Múi giờ" />
+                <ComboBox ItemsSource="{x:Static vm:ProfileEditorViewModel.AutoOptions}" SelectedItem="{Binding TimezoneMode}" HorizontalAlignment="Stretch" />
+                <TextBox Text="{Binding Timezone}" Watermark="Asia/Ho_Chi_Minh" Margin="0,6,0,0" IsVisible="{Binding IsTimezoneCustom}" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="label" Text="Ngôn ngữ" />
+                <ComboBox ItemsSource="{x:Static vm:ProfileEditorViewModel.AutoOptions}" SelectedItem="{Binding LanguageMode}" HorizontalAlignment="Stretch" />
+                <TextBox Text="{Binding Languages}" Watermark="vi-VN,vi,en-US,en" Margin="0,6,0,0" IsVisible="{Binding IsLanguageCustom}" />
+              </StackPanel>
+            </Grid>
+
+            <Grid ColumnDefinitions="*,16,*">
+              <StackPanel>
+                <TextBlock Classes="label" Text="Vị trí (Geolocation)" />
+                <ComboBox ItemsSource="{x:Static vm:ProfileEditorViewModel.AutoOptions}" SelectedItem="{Binding GeoMode}" HorizontalAlignment="Stretch" />
+                <Grid ColumnDefinitions="*,8,*" Margin="0,6,0,0" IsVisible="{Binding IsGeoCustom}">
+                  <TextBox Text="{Binding Latitude}" Watermark="Vĩ độ" />
+                  <TextBox Grid.Column="2" Text="{Binding Longitude}" Watermark="Kinh độ" />
+                </Grid>
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="label" Text="WebRTC" />
+                <ComboBox ItemsSource="{x:Static vm:ProfileEditorViewModel.WebRtcOptions}" SelectedItem="{Binding WebRtc}" HorizontalAlignment="Stretch" />
+                <TextBox Text="{Binding WebRtcPublicIp}" Watermark="IP công khai (trống = lấy từ proxy)" Margin="0,6,0,0" IsVisible="{Binding IsWebRtcAltered}" />
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>

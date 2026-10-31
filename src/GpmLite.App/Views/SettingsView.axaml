@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GpmLite.App.ViewModels"
+             x:Class="GpmLite.App.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+  <ScrollViewer>
+    <StackPanel MaxWidth="760" HorizontalAlignment="Left" Spacing="12">
+      <TextBlock Classes="h1" Text="Cài đặt" />
+
+      <Border Classes="card" Padding="18">
+        <StackPanel>
+          <TextBlock FontWeight="SemiBold" FontSize="15" Text="Trình duyệt (browser core)" />
+          <TextBlock Classes="label" Text="Đường dẫn Chrome/Chromium (để trống = tự phát hiện)" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Text="{Binding BrowserPath}" Watermark="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" />
+            <Button Grid.Column="1" Classes="ghost" Margin="8,0,0,0" Content="Chọn..." Command="{Binding BrowseCommand}" />
+          </Grid>
+          <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap" Text="{Binding Detected}" />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" Padding="18">
+        <StackPanel>
+          <TextBlock FontWeight="SemiBold" FontSize="15" Text="Proxy &amp; vị trí" />
+          <CheckBox Margin="0,10,0,0" IsChecked="{Binding CheckProxyOnStart}"
+                    Content="Kiểm tra IP trước khi mở hồ sơ (cần cho múi giờ / ngôn ngữ / vị trí tự động)" />
+          <TextBlock Classes="label" Text="Dịch vụ tra cứu IP" />
+          <TextBox Text="{Binding IpLookupUrl}" FontFamily="Menlo,Consolas,monospace" />
+          <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
+                     Text="Phải trả về JSON giống ip-api.com (query, countryCode, timezone, lat, lon...). Đây là dịch vụ bên ngoài duy nhất ứng dụng gọi tới." />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" Padding="18">
+        <StackPanel>
+          <TextBlock FontWeight="SemiBold" FontSize="15" Text="API cục bộ (tự động hoá)" />
+          <CheckBox Margin="0,10,0,0" IsChecked="{Binding LocalApiEnabled}" Content="Bật API trên 127.0.0.1" />
+          <TextBlock Classes="label" Text="Cổng" />
+          <NumericUpDown Value="{Binding LocalApiPort}" Minimum="1024" Maximum="65535" Increment="1" FormatString="0" Width="160" HorizontalAlignment="Left" />
+          <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
+                     Text="POST /api/v1/profiles/{id}/start trả về debugger_address để Selenium (debuggerAddress) hoặc Puppeteer/Playwright (connectOverCDP) điều khiển hồ sơ." />
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" Padding="18">
+        <StackPanel Spacing="6">
+          <TextBlock FontWeight="SemiBold" FontSize="15" Text="Dữ liệu" />
+          <SelectableTextBlock Classes="muted" FontSize="12" Text="{Binding DataFolder}" FontFamily="Menlo,Consolas,monospace" />
+          <Button Classes="ghost" Content="Mở thư mục dữ liệu" Command="{Binding OpenDataFolderCommand}" HorizontalAlignment="Left" />
+        </StackPanel>
+      </Border>
+
+      <Button Classes="primary" Content="Lưu cài đặt" Command="{Binding SaveCommand}" HorizontalAlignment="Left" Margin="0,4,0,20" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

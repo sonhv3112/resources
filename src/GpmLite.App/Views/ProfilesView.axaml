@@ -1,0 +1,116 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GpmLite.App.ViewModels"
+             x:Class="GpmLite.App.Views.ProfilesView"
+             x:DataType="vm:ProfilesViewModel">
+  <DockPanel>
+    <!-- Header -->
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+      <StackPanel>
+        <TextBlock Classes="h1" Text="Danh sách hồ sơ" />
+        <TextBlock Classes="muted" FontSize="12" Text="{Binding Summary}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Button Classes="ghost" Content="Tạo hàng loạt" Command="{Binding BulkCreateCommand}" />
+        <Button Classes="primary" Content="+  Tạo hồ sơ" Command="{Binding CreateCommand}" />
+      </StackPanel>
+    </Grid>
+
+    <!-- Toolbar -->
+    <Border DockPanel.Dock="Top" Classes="card" Padding="12,10" Margin="0,0,0,10">
+      <Grid ColumnDefinitions="200,300,*,Auto">
+        <ComboBox ItemsSource="{Binding GroupFilter}" SelectedItem="{Binding SelectedGroup}" HorizontalAlignment="Stretch" />
+        <TextBox Grid.Column="1" Margin="8,0,0,0" Watermark="Tìm theo tên, ghi chú, proxy..." Text="{Binding SearchText}" />
+        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" IsVisible="{Binding HasSelection}">
+          <TextBlock VerticalAlignment="Center" Classes="muted" Margin="0,0,6,0">
+            <Run Text="Đã chọn" /> <Run Text="{Binding SelectedCount}" FontWeight="SemiBold" />
+          </TextBlock>
+          <Button Classes="ghost" Content="▶ Mở" Command="{Binding StartSelectedCommand}" />
+          <Button Classes="ghost" Content="■ Đóng" Command="{Binding StopSelectedCommand}" />
+          <Button Classes="ghost" Content="Chuyển nhóm" Command="{Binding MoveSelectedCommand}" />
+          <Button Classes="ghost" Content="Đổi fingerprint" Command="{Binding RandomizeSelectedCommand}" />
+          <Button Classes="ghost" Foreground="{StaticResource Danger}" Content="Xoá" Command="{Binding DeleteSelectedCommand}" />
+        </StackPanel>
+        <Button Grid.Column="3" Classes="ghost" Content="⟳ Làm mới" Command="{Binding RefreshCommand}" IsVisible="{Binding !HasSelection}" />
+      </Grid>
+    </Border>
+
+    <!-- Table -->
+    <Border Classes="card" ClipToBounds="True">
+      <Grid>
+        <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" CanUserResizeColumns="True"
+                  CanUserReorderColumns="False" HeadersVisibility="Column" SelectionMode="Extended"
+                  IsReadOnly="True">
+          <DataGrid.Columns>
+            <DataGridTemplateColumn Width="44">
+              <DataGridTemplateColumn.Header>
+                <CheckBox IsChecked="{Binding $parent[UserControl].((vm:ProfilesViewModel)DataContext).AllSelected}" />
+              </DataGridTemplateColumn.Header>
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate x:DataType="vm:ProfileRow">
+                  <CheckBox IsChecked="{Binding IsSelected}" HorizontalAlignment="Center" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="50" x:DataType="vm:ProfileRow" />
+            <DataGridTemplateColumn Header="Tên hồ sơ" Width="2*" MinWidth="170" SortMemberPath="Name">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate x:DataType="vm:ProfileRow">
+                  <StackPanel VerticalAlignment="Center" Margin="8,0">
+                    <TextBlock Text="{Binding Name}" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{StaticResource Success}" IsVisible="{Binding IsRunning}" />
+                  </StackPanel>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="Nhóm" Binding="{Binding GroupName}" Width="*" MinWidth="90" x:DataType="vm:ProfileRow" />
+            <DataGridTemplateColumn Header="Proxy" Width="2*" MinWidth="180">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate x:DataType="vm:ProfileRow">
+                  <StackPanel VerticalAlignment="Center" Margin="8,0">
+                    <TextBlock Text="{Binding ProxyDisplay}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding ProxyStatus}" FontSize="11" Classes="muted" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="Hệ điều hành" Binding="{Binding OsText}" Width="120" x:DataType="vm:ProfileRow" />
+            <DataGridTextColumn Header="Tag" Binding="{Binding TagsText}" Width="0.8*" MinWidth="70" x:DataType="vm:ProfileRow" />
+            <DataGridTextColumn Header="Ghi chú" Binding="{Binding Note}" Width="1.5*" MinWidth="110" x:DataType="vm:ProfileRow" />
+            <DataGridTextColumn Header="Lần mở cuối" Binding="{Binding LastRun}" Width="160" x:DataType="vm:ProfileRow" />
+            <DataGridTemplateColumn Header="Thao tác" Width="170">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate x:DataType="vm:ProfileRow">
+                  <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="6,0">
+                    <Button Classes="run" Classes.running="{Binding IsRunning}" Content="{Binding RunText}"
+                            Command="{Binding ToggleRunCommand}" IsEnabled="{Binding !IsBusy}" />
+                    <Button Classes="link" Content="⋯" FontSize="16">
+                      <Button.Flyout>
+                        <MenuFlyout>
+                          <MenuItem Header="Sửa hồ sơ" Command="{Binding EditCommand}" />
+                          <MenuItem Header="Nhân bản" Command="{Binding CloneCommand}" />
+                          <MenuItem Header="Kiểm tra proxy" Command="{Binding CheckProxyCommand}" />
+                          <MenuItem Header="Sao chép địa chỉ debug (Selenium/Puppeteer)" Command="{Binding CopyDebuggerCommand}"
+                                    IsEnabled="{Binding IsRunning}" />
+                          <Separator />
+                          <MenuItem Header="Xoá" Command="{Binding DeleteCommand}" />
+                        </MenuFlyout>
+                      </Button.Flyout>
+                    </Button>
+                  </StackPanel>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+          </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
+                    IsVisible="{Binding !Rows.Count}">
+          <TextBlock Text="Chưa có hồ sơ nào" FontSize="16" FontWeight="Medium" HorizontalAlignment="Center" />
+          <TextBlock Classes="muted" Text="Tạo hồ sơ đầu tiên để bắt đầu." HorizontalAlignment="Center" />
+          <Button Classes="primary" Content="+  Tạo hồ sơ" Command="{Binding CreateCommand}" HorizontalAlignment="Center" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </DockPanel>
+</UserControl>

@@ -1,0 +1,72 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GpmLite.App.ViewModels"
+        xmlns:v="using:GpmLite.App.Views"
+        x:Class="GpmLite.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="GpmLite — Quản lý hồ sơ trình duyệt"
+        Width="1320" Height="820" MinWidth="1000" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource PageBg}">
+
+  <Window.DataTemplates>
+    <DataTemplate DataType="vm:ProfilesViewModel"><v:ProfilesView /></DataTemplate>
+    <DataTemplate DataType="vm:GroupsViewModel"><v:GroupsView /></DataTemplate>
+    <DataTemplate DataType="vm:ProxiesViewModel"><v:ProxiesView /></DataTemplate>
+    <DataTemplate DataType="vm:ExtensionsViewModel"><v:ExtensionsView /></DataTemplate>
+    <DataTemplate DataType="vm:SettingsViewModel"><v:SettingsView /></DataTemplate>
+  </Window.DataTemplates>
+
+  <Grid ColumnDefinitions="220,*" RowDefinitions="*,Auto">
+    <!-- Sidebar -->
+    <Border Grid.RowSpan="2" Background="{StaticResource SidebarBg}">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Margin="20,22,20,18" Orientation="Horizontal" Spacing="10">
+          <Border Width="34" Height="34" CornerRadius="9" Background="{StaticResource SidebarActive}">
+            <TextBlock Text="GL" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="GpmLite" Foreground="White" FontSize="16" FontWeight="SemiBold" />
+            <TextBlock Text="Local antidetect" Foreground="{StaticResource SidebarText}" FontSize="11" />
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,16" Spacing="2">
+          <TextBlock Text="{Binding CoreText}" Foreground="{StaticResource SidebarText}" FontSize="11" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding ApiText}" Foreground="{StaticResource SidebarText}" FontSize="11" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel Spacing="2">
+          <Button Classes="nav" Classes.active="{Binding IsProfiles}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:Page.Profiles}">
+            <StackPanel Orientation="Horizontal" Spacing="10"><TextBlock Text="▤" Width="16" /><TextBlock Text="Hồ sơ" /></StackPanel>
+          </Button>
+          <Button Classes="nav" Classes.active="{Binding IsGroups}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:Page.Groups}">
+            <StackPanel Orientation="Horizontal" Spacing="10"><TextBlock Text="◫" Width="16" /><TextBlock Text="Nhóm" /></StackPanel>
+          </Button>
+          <Button Classes="nav" Classes.active="{Binding IsProxies}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:Page.Proxies}">
+            <StackPanel Orientation="Horizontal" Spacing="10"><TextBlock Text="⇄" Width="16" /><TextBlock Text="Proxy" /></StackPanel>
+          </Button>
+          <Button Classes="nav" Classes.active="{Binding IsExtensions}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:Page.Extensions}">
+            <StackPanel Orientation="Horizontal" Spacing="10"><TextBlock Text="⧉" Width="16" /><TextBlock Text="Tiện ích mở rộng" /></StackPanel>
+          </Button>
+          <Button Classes="nav" Classes.active="{Binding IsSettings}" Command="{Binding NavigateCommand}" CommandParameter="{x:Static vm:Page.Settings}">
+            <StackPanel Orientation="Horizontal" Spacing="10"><TextBlock Text="⚙" Width="16" /><TextBlock Text="Cài đặt" /></StackPanel>
+          </Button>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- Page -->
+    <ContentControl Grid.Column="1" Content="{Binding CurrentView}" Margin="20,18,20,8" />
+
+    <!-- Status bar -->
+    <Border Grid.Column="1" Grid.Row="1" BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Background="White" Padding="20,6">
+      <StackPanel Orientation="Horizontal" Spacing="18">
+        <TextBlock Classes="muted" FontSize="12">
+          <Run Text="Đang chạy:" /> <Run Text="{Binding RunningCount}" FontWeight="SemiBold" />
+        </TextBlock>
+        <TextBlock Classes="muted" FontSize="12" Text="Dữ liệu chỉ lưu trên máy này — không đồng bộ lên server." />
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

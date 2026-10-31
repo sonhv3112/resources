@@ -1,0 +1,46 @@
+namespace GpmLite.Core.Models;
+
+public sealed class Profile
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = "";
+    public string? GroupId { get; set; }
+    /// <summary>Raw proxy string (see <see cref="Proxy.ProxyConfig.Parse"/>). Empty = direct connection.</summary>
+    public string Proxy { get; set; } = "";
+    public string Note { get; set; } = "";
+    /// <summary>Comma-separated startup URLs opened on launch.</summary>
+    public string StartupUrls { get; set; } = "";
+    /// <summary>Serialized <see cref="Fingerprint.FingerprintConfig"/> (JSON).</summary>
+    public string FingerprintJson { get; set; } = "";
+    /// <summary>Absolute path to this profile's Chrome user-data-dir.</summary>
+    public string StoragePath { get; set; } = "";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? LastRunAt { get; set; }
+    /// <summary>Last proxy-check result shown in the list (e.g. "VN · 1.2.3.4").</summary>
+    public string ProxyStatus { get; set; } = "";
+}
+
+public sealed class Group
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = "";
+    public int SortOrder { get; set; }
+}
+
+public sealed class Tag
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = "";
+    public string Color { get; set; } = "#3B82F6";
+}
+
+/// <summary>A saved proxy in the proxy manager.</summary>
+public sealed class SavedProxy
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Raw { get; set; } = "";
+    public string Note { get; set; } = "";
+    public string LastCheck { get; set; } = "";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}

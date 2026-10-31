@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GpmLite.App.ViewModels"
+             x:Class="GpmLite.App.Views.ProxiesView"
+             x:DataType="vm:ProxiesViewModel">
+  <DockPanel>
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+      <TextBlock Classes="h1" Text="Quản lý proxy" />
+      <Button Grid.Column="1" Classes="ghost" Content="Kiểm tra tất cả" Command="{Binding CheckAllCommand}"
+              IsEnabled="{Binding !IsChecking}" />
+    </Grid>
+    <Border DockPanel.Dock="Top" Classes="card" Padding="12" Margin="0,0,0,10">
+      <StackPanel Spacing="8">
+        <TextBlock Classes="muted" FontSize="12"
+                   Text="Mỗi dòng một proxy. Hỗ trợ: host:port · host:port:user:pass · user:pass@host:port · http:// · socks4:// · socks5://" />
+        <TextBox Text="{Binding Input}" AcceptsReturn="True" Height="90" FontFamily="Menlo,Consolas,monospace"
+                 Watermark="1.2.3.4:8080:user:pass&#10;socks5://user:pass@proxy.example.com:1080" />
+        <Button Classes="primary" Content="+  Thêm proxy" Command="{Binding AddCommand}" HorizontalAlignment="Left" />
+      </StackPanel>
+    </Border>
+    <Border Classes="card" ClipToBounds="True">
+      <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Proxy" Binding="{Binding Raw}" Width="2*" x:DataType="vm:ProxyRow" FontFamily="Menlo,Consolas,monospace" />
+          <DataGridTextColumn Header="Kết quả kiểm tra" Binding="{Binding Status}" Width="2*" x:DataType="vm:ProxyRow" />
+          <DataGridTemplateColumn Header="Thao tác" Width="180">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate x:DataType="vm:ProxyRow">
+                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="6,0">
+                  <Button Classes="link" Content="Sao chép"
+                          Command="{Binding $parent[UserControl].((vm:ProxiesViewModel)DataContext).CopyCommand}" CommandParameter="{Binding}" />
+                  <Button Classes="link" Foreground="{StaticResource Danger}" Content="Xoá"
+                          Command="{Binding $parent[UserControl].((vm:ProxiesViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" />
+                </StackPanel>
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+        </DataGrid.Columns>
+      </DataGrid>
+    </Border>
+  </DockPanel>
+</UserControl>
