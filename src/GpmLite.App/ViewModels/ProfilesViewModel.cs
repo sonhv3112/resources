@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -153,6 +154,42 @@ public partial class ProfilesViewModel : ObservableObject
                 if (!ProxyConfig.TryParse(px, out _, out var err)) throw new ArgumentException($"Proxy \"{px}\": {err}");
             var created = await Task.Run(() => _service.CreateBulk(vm.Prefix, vm.Count, vm.SelectedGroup?.Id, proxies, vm.Os));
             Dialogs.Notify("Tạo hàng loạt", $"Đã tạo {created.Count} hồ sơ");
+            Reload();
+        }
+        catch (Exception e) { Dialogs.Notify("Lỗi", e.Message, error: true); }
+    }
+
+    [RelayCommand]
+    private async Task ImportExcelAsync()
+    {
+        var path = await PickFileAsync("Nhập hồ sơ từ Excel/CSV",
+            new FilePickerFileType("Excel / CSV") { Patterns = ["*.xlsx", "*.csv"] });
+        if (path is null) return;
+        try
+        {
+            var result = await Task.Run(() => ProfileImportExport.Import(_service, path));
+            var msg = $"Đã nhập {result.Imported} hồ sơ"
+                      + (result.Skipped > 0 ? $", bỏ qua {result.Skipped} dòng" : "");
+            Dialogs.Notify("Nhập hồ sơ", msg, error: result.Imported == 0);
+            if (result.Errors.Count > 0)
+                Dialogs.Notify("Dòng bị bỏ qua", string.Join("\n", result.Errors.Take(8)), error: true);
+            ReloadGroups();
+            Reload();
+        }
+        catch (Exception e) { Dialogs.Notify("Lỗi", e.Message, error: true); }
+    }
+
+    [RelayCommand]
+    private async Task RestoreAsync()
+    {
+        var path = await PickFileAsync("Khôi phục hồ sơ",
+            new FilePickerFileType("Bản sao lưu (.zip)") { Patterns = ["*.zip"] });
+        if (path is null) return;
+        try
+        {
+            var p = await Task.Run(() => BackupService.Restore(_service, path));
+            Dialogs.Notify("Khôi phục", $"Đã khôi phục \"{p.Name}\".");
+            ReloadGroups();
             Reload();
         }
         catch (Exception e) { Dialogs.Notify("Lỗi", e.Message, error: true); }
@@ -317,6 +354,90 @@ public partial class ProfilesViewModel : ObservableObject
     {
         if (row.DebuggerAddress is { } addr) _ = Dialogs.CopyAsync(addr);
     }
+
+    // ---------- cookie / backup row actions ----------
+    internal async Task ExportCookieRowAsync(ProfileRow row)
+    {
+        var rb = _service.GetRunning(row.Id);
+        if (rb is null)
+        {
+            Dialogs.Notify("Xuất cookie", "Hãy mở hồ sơ trước khi xuất cookie.", error: true);
+            return;
+        }
+        var path = await SaveFileAsync("Xuất cookie", $"{Sanitize(row.Name)}-cookies.json", "json",
+            new FilePickerFileType("JSON") { Patterns = ["*.json"] });
+        if (path is null) return;
+        try
+        {
+            var n = await CookieService.ExportAsync(rb, path);
+            Dialogs.Notify("Xuất cookie", $"Đã xuất {n} cookie.");
+        }
+        catch (Exception e) { Dialogs.Notify("Lỗi", e.Message, error: true); }
+    }
+
+    internal async Task ImportCookieRowAsync(ProfileRow row)
+    {
+        var rb = _service.GetRunning(row.Id);
+        if (rb is null)
+        {
+            Dialogs.Notify("Nhập cookie", "Hãy mở hồ sơ trước khi nhập cookie.", error: true);
+            return;
+        }
+        var path = await PickFileAsync("Nhập cookie", new FilePickerFileType("JSON") { Patterns = ["*.json"] });
+        if (path is null) return;
+        try
+        {
+            var n = await CookieService.ImportAsync(rb, path);
+            Dialogs.Notify("Nhập cookie", $"Đã nhập {n} cookie.");
+        }
+        catch (Exception e) { Dialogs.Notify("Lỗi", e.Message, error: true); }
+    }
+
+    internal async Task BackupRowAsync(ProfileRow row)
+    {
+        var path = await SaveFileAsync("Sao lưu hồ sơ", $"{Sanitize(row.Name)}.zip", "zip",
+            new FilePickerFileType("Zip") { Patterns = ["*.zip"] });
+        if (path is null) return;
+        try
+        {
+            await Task.Run(() => BackupService.Backup(_service, row.Id, path));
+            Dialogs.Notify("Sao lưu", $"Đã sao lưu \"{row.Name}\".");
+        }
+        catch (Exception e) { Dialogs.Notify("Lỗi", e.Message, error: true); }
+    }
+
+    // ---------- file pickers ----------
+    private static async Task<string?> PickFileAsync(string title, FilePickerFileType filter)
+    {
+        if (Dialogs.Owner is not { } owner) return null;
+        var files = await owner.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = false,
+            FileTypeFilter = [filter],
+        });
+        return files.FirstOrDefault()?.TryGetLocalPath();
+    }
+
+    private static async Task<string?> SaveFileAsync(string title, string suggestedName, string ext, FilePickerFileType filter)
+    {
+        if (Dialogs.Owner is not { } owner) return null;
+        var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = title,
+            SuggestedFileName = suggestedName,
+            DefaultExtension = ext,
+            FileTypeChoices = [filter],
+        });
+        return file?.TryGetLocalPath();
+    }
+
+    private static string Sanitize(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var cleaned = new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
+        return cleaned.Length == 0 ? "profile" : cleaned;
+    }
 }
 
 public partial class ProfileRow : ObservableObject
@@ -411,4 +532,7 @@ public partial class ProfileRow : ObservableObject
     [RelayCommand] private Task Delete() => _owner.DeleteRowAsync(this);
     [RelayCommand] private Task CheckProxy() => _owner.CheckProxyRowAsync(this);
     [RelayCommand] private void CopyDebugger() => _owner.CopyDebugger(this);
+    [RelayCommand] private Task ExportCookie() => _owner.ExportCookieRowAsync(this);
+    [RelayCommand] private Task ImportCookie() => _owner.ImportCookieRowAsync(this);
+    [RelayCommand] private Task Backup() => _owner.BackupRowAsync(this);
 }

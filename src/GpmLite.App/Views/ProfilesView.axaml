@@ -11,6 +11,8 @@
         <TextBlock Classes="muted" FontSize="12" Text="{Binding Summary}" />
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+        <Button Classes="ghost" Content="Khôi phục" Command="{Binding RestoreCommand}" />
+        <Button Classes="ghost" Content="Nhập từ Excel/CSV" Command="{Binding ImportExcelCommand}" />
         <Button Classes="ghost" Content="Tạo hàng loạt" Command="{Binding BulkCreateCommand}" />
         <Button Classes="primary" Content="+  Tạo hồ sơ" Command="{Binding CreateCommand}" />
       </StackPanel>
@@ -92,6 +94,10 @@
                           <MenuItem Header="Kiểm tra proxy" Command="{Binding CheckProxyCommand}" />
                           <MenuItem Header="Sao chép địa chỉ debug (Selenium/Puppeteer)" Command="{Binding CopyDebuggerCommand}"
                                     IsEnabled="{Binding IsRunning}" />
+                          <Separator />
+                          <MenuItem Header="Xuất cookie" Command="{Binding ExportCookieCommand}" IsEnabled="{Binding IsRunning}" />
+                          <MenuItem Header="Nhập cookie" Command="{Binding ImportCookieCommand}" IsEnabled="{Binding IsRunning}" />
+                          <MenuItem Header="Sao lưu" Command="{Binding BackupCommand}" />
                           <Separator />
                           <MenuItem Header="Xoá" Command="{Binding DeleteCommand}" />
                         </MenuFlyout>
