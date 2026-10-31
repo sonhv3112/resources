@@ -237,3 +237,63 @@ public sealed class BackupServiceTests : IDisposable
             try { Directory.Delete(d, true); } catch (IOException) { }
     }
 }
+
+public sealed class ProfileCloneTests : IDisposable
+{
+    private readonly string _home = Path.Combine(Path.GetTempPath(), "gpmlite-clone-" + Guid.NewGuid().ToString("N"));
+    private readonly ProfileService _service;
+
+    public ProfileCloneTests()
+    {
+        var paths = new AppPaths(_home);
+        _service = new ProfileService(paths, new Repository(new Database(paths.DatabaseFile)), new AppSettings());
+    }
+
+    private Profile SeedProfile()
+    {
+        var p = new Profile
+        {
+            Name = "Shop 01",
+            Proxy = "socks5://1.2.3.4:1080",
+            Note = "ghi chú",
+            StartupUrls = "https://example.com",
+            FingerprintJson = """{"Os":0,"Seed":424242,"CanvasRate":17}""",
+        };
+        p.StoragePath = _service.Paths.ProfileDir(p.Id);
+        Directory.CreateDirectory(Path.Combine(p.StoragePath, "Default"));
+        File.WriteAllText(Path.Combine(p.StoragePath, "Local State"), "root-file");
+        File.WriteAllText(Path.Combine(p.StoragePath, "Default", "Cookies"), "cookie-bytes");
+        // A stale Chrome lock marker must NOT be carried into the clone.
+        File.WriteAllText(Path.Combine(p.StoragePath, "SingletonCookie"), "stale");
+        _service.Repo.UpsertProfile(p);
+        return p;
+    }
+
+    [Fact]
+    public void Clone_copies_fingerprint_verbatim_and_user_data_dir()
+    {
+        var src = SeedProfile();
+        var copy = _service.Clone(src.Id);
+
+        Assert.NotEqual(src.Id, copy.Id);                               // new id
+        Assert.Equal(_service.Paths.ProfileDir(copy.Id), copy.StoragePath); // new storage path
+        Assert.Equal("Shop 01 (copy)", copy.Name);
+        Assert.Equal(src.FingerprintJson, copy.FingerprintJson);        // verbatim, not regenerated
+        Assert.Equal(src.Proxy, copy.Proxy);
+
+        // Cookies/sessions carried over.
+        Assert.Equal("root-file", File.ReadAllText(Path.Combine(copy.StoragePath, "Local State")));
+        Assert.Equal("cookie-bytes", File.ReadAllText(Path.Combine(copy.StoragePath, "Default", "Cookies")));
+        // Singleton* lock markers are not copied.
+        Assert.False(File.Exists(Path.Combine(copy.StoragePath, "SingletonCookie")));
+
+        // Persisted as its own row.
+        Assert.Equal("Shop 01 (copy)", _service.Repo.GetProfile(copy.Id)!.Name);
+    }
+
+    public void Dispose()
+    {
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        try { Directory.Delete(_home, true); } catch (IOException) { }
+    }
+}

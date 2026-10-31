@@ -288,6 +288,10 @@ public sealed class RunningBrowser : IAsyncDisposable
             var targetId = firstPage["targetId"]!.GetValue<string>();
             var attach = await _cdp.SendAsync("Target.attachToTarget", new { targetId, flatten = true }, ct: ct);
             var sessionId = attach["sessionId"]!.GetValue<string>();
+            // Geolocation is the one surface with no native --gl-* switch: apply it via CDP during init.
+            if (_plan.Geo is { } g)
+                await _cdp.TrySendAsync("Emulation.setGeolocationOverride",
+                    new { latitude = g.Lat, longitude = g.Lon, accuracy = g.Accuracy }, sessionId);
             await _cdp.TrySendAsync("Page.navigate", new { url = urls[0] }, sessionId);
         }
         else

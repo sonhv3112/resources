@@ -104,6 +104,11 @@ public static class FingerprintGenerator
             AudioInputs = 1,
             AudioOutputs = rng.Next(1, 3),
             VideoInputs = rng.Next(0, 2),
+            // Per-profile noise amplitudes, stable for this seed.
+            CanvasRate = rng.Next(5, 41),            // permille, 0.5%..4%
+            WebglRate = rng.Next(32, 129),           // flip 1 in N bytes
+            AudioAmp = 5e-6 + rng.NextDouble() * (3e-5 - 5e-6),
+            RectsAmp = 0.005 + rng.NextDouble() * (0.05 - 0.005),
         };
 
         Gpu gpu;

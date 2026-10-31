@@ -10,6 +10,8 @@ public class GlSwitchBuilderTests
     private static FingerprintConfig WindowsSample() => new()
     {
         Seed = 123456,
+        BrowserMajor = 156,
+        BrowserFullVersion = "156.0.8078.76",
         UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
         Platform = "Win32",
         HardwareConcurrency = 8,
@@ -52,18 +54,32 @@ public class GlSwitchBuilderTests
             "--gl-screen=1920x1080",
             "--gl-avail=1920x1040",
             "--gl-color-depth=24",
+            "--gl-dpr=1",
             "--gl-webgl-vendor=Google Inc. (NVIDIA)",
             "--gl-webgl-renderer=ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            $"--gl-webgl-params={WebGlPresets.BuildParamsBase64(fp.WebGlRenderer)}",
             "--gl-canvas-noise",
+            "--gl-canvas-rate=20",
             "--gl-webgl-noise",
+            "--gl-webgl-rate=64",
             "--gl-audio-noise",
+            "--gl-audio-amp=0.00001",
             "--gl-rects-noise",
+            "--gl-rects-amp=0.01",
             "--gl-webrtc=proxy",
             "--gl-vendor=Google Inc.",
             "--gl-media-audioinputs=1",
             "--gl-media-audiooutputs=1",
             "--gl-media-videoinputs=1",
+            "--gl-ua-platform=Windows",
+            "--gl-ua-platform-version=15.0.0",
+            "--gl-ua-arch=x86",
+            "--gl-ua-bitness=64",
+            "--gl-ua-model=",
+            "--gl-ua-full-version=156.0.8078.76",
+            "--gl-ua-mobile=0",
             $"--user-agent={fp.UserAgent}",
+            "--gl-languages=en-US,en",
             "--lang=en-US",
             "--accept-lang=en-US,en",
         ];
@@ -179,6 +195,55 @@ public class GlSwitchBuilderTests
         var fp = WindowsSample(); // GeoMode = Real
         var gl = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null));
         Assert.DoesNotContain(gl.Args, a => a.StartsWith("--gl-geo-", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Webgl_params_switch_only_when_custom()
+    {
+        var fp = WindowsSample();
+        Assert.Contains(GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null)).Args,
+            a => a.StartsWith("--gl-webgl-params=", StringComparison.Ordinal));
+
+        fp.WebGlMetadataCustom = false;
+        Assert.DoesNotContain(GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null)).Args,
+            a => a.StartsWith("--gl-webgl-params=", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Noise_amps_paired_with_their_noise_flag()
+    {
+        var fp = WindowsSample();
+        fp.CanvasRate = 33;
+        fp.WebglRate = 48;
+        fp.AudioAmp = 2e-5;
+        fp.RectsAmp = 0.02;
+        fp.Audio = NoiseMode.Real; // audio off: no amp either
+        var args = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null)).Args;
+
+        Assert.Contains("--gl-canvas-rate=33", args);
+        Assert.Contains("--gl-webgl-rate=48", args);
+        Assert.Contains("--gl-rects-amp=0.02", args);
+        Assert.DoesNotContain(args, a => a.StartsWith("--gl-audio-amp", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Ua_client_hint_switches_reflect_fingerprint()
+    {
+        var fp = WindowsSample();
+        fp.UaMobile = true;
+        var args = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null)).Args;
+        Assert.Contains("--gl-ua-platform=Windows", args);
+        Assert.Contains("--gl-ua-bitness=64", args);
+        Assert.Contains("--gl-ua-full-version=156.0.8078.76", args);
+        Assert.Contains("--gl-ua-mobile=1", args);
+    }
+
+    [Fact]
+    public void Dpr_switch_uses_invariant_culture()
+    {
+        var fp = WindowsSample();
+        fp.DevicePixelRatio = 1.25;
+        Assert.Contains("--gl-dpr=1.25", GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null)).Args);
     }
 
     [Theory]

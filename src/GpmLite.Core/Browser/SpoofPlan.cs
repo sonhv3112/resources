@@ -110,9 +110,9 @@ public sealed record SpoofPlan(
                 platform = Fp.UaPlatform,
                 platformVersion = Fp.UaPlatformVersion,
                 architecture = Fp.UaArch,
-                model = "",
-                mobile = false,
-                bitness = "64",
+                model = Fp.UaModel,
+                mobile = Fp.UaMobile,
+                bitness = Fp.UaBitness,
                 wow64 = false,
             },
         };

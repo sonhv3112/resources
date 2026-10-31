@@ -35,6 +35,12 @@ public sealed class FingerprintConfig
     public string UaPlatform { get; set; } = "Windows";
     public string UaPlatformVersion { get; set; } = "15.0.0";
     public string UaArch { get; set; } = "x86";
+    /// <summary>UA-CH architecture bitness; "64" on modern desktops.</summary>
+    public string UaBitness { get; set; } = "64";
+    /// <summary>UA-CH device model; empty on desktop.</summary>
+    public string UaModel { get; set; } = "";
+    /// <summary>UA-CH mobile flag; false on desktop.</summary>
+    public bool UaMobile { get; set; }
     public int HardwareConcurrency { get; set; } = 8;
     public int DeviceMemory { get; set; } = 8;
 
@@ -64,6 +70,17 @@ public sealed class FingerprintConfig
     public string WebGlRenderer { get; set; } = "";
     public NoiseMode Audio { get; set; } = NoiseMode.Noise;
     public NoiseMode ClientRects { get; set; } = NoiseMode.Noise;
+
+    // Per-profile noise amplitudes. Picked from the seed within realistic ranges so the magnitude
+    // varies per profile but stays stable within one. Default to the patch's wave-1 constants.
+    /// <summary>Canvas pixel perturbation rate in permille (5..40 ≡ 0.5%..4%).</summary>
+    public int CanvasRate { get; set; } = 20;
+    /// <summary>WebGL byte flip rate: flip the low bit of 1 in N bytes (32..128).</summary>
+    public int WebglRate { get; set; } = 64;
+    /// <summary>AudioContext base sample amplitude (5e-6..3e-5).</summary>
+    public double AudioAmp { get; set; } = 1e-5;
+    /// <summary>getClientRects jitter amplitude (0.005..0.05).</summary>
+    public double RectsAmp { get; set; } = 0.01;
 
     // Network
     public WebRtcMode WebRtc { get; set; } = WebRtcMode.Altered;

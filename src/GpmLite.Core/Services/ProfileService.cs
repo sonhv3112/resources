@@ -119,12 +119,49 @@ public sealed class ProfileService
         return list;
     }
 
+    /// <summary>
+    /// Duplicates a profile verbatim: same fingerprint AND a copy of its Chrome user-data-dir, so cookies
+    /// and sessions carry over. The copy gets a new id and a new storage path. Refuses while the source runs
+    /// (copying a live profile dir would capture a half-written/locked state).
+    /// </summary>
     public Profile Clone(string id)
     {
         var src = _repo.GetProfile(id) ?? throw new KeyNotFoundException(id);
-        var core = RequireCore();
-        var fp = FingerprintGenerator.Regenerate(FingerprintConfig.FromJson(src.FingerprintJson), core.Version);
-        return Create($"{src.Name} (copy)", src.GroupId, src.Proxy, fp.Os, fp, src.Note, src.StartupUrls);
+        if (IsRunning(id))
+            throw new InvalidOperationException("Hãy dừng hồ sơ nguồn trước khi nhân bản (cookie/phiên đang được dùng).");
+
+        var p = new Profile
+        {
+            Name = $"{src.Name} (copy)",
+            GroupId = src.GroupId,
+            Proxy = src.Proxy,
+            Note = src.Note,
+            StartupUrls = src.StartupUrls,
+            FingerprintJson = src.FingerprintJson, // verbatim: no regenerate
+        };
+        p.StoragePath = _paths.ProfileDir(p.Id);
+        CopyProfileDir(src.StoragePath, p.StoragePath);
+        _repo.UpsertProfile(p);
+        return p;
+    }
+
+    /// <summary>Recursively copies a profile's user-data-dir, skipping Chrome's Singleton* lock markers
+    /// (they point at the source's old pid) and any file locked at copy time.</summary>
+    private static void CopyProfileDir(string sourceDir, string destDir)
+    {
+        if (string.IsNullOrEmpty(sourceDir) || !Directory.Exists(sourceDir)) return;
+        var root = Path.GetFullPath(sourceDir);
+        Directory.CreateDirectory(destDir);
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        {
+            var name = Path.GetFileName(file);
+            if (name.StartsWith("Singleton", StringComparison.Ordinal)) continue;
+            var rel = Path.GetRelativePath(root, file);
+            var dest = Path.Combine(destDir, rel);
+            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+            try { File.Copy(file, dest, overwrite: true); }
+            catch (IOException) { /* a locked file is skipped, like backup does */ }
+        }
     }
 
     public void Update(Profile p)

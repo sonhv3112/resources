@@ -80,6 +80,65 @@ public class FingerprintGeneratorTests
     [Fact]
     public void Invalid_version_throws() =>
         Assert.Throws<ArgumentException>(() => FingerprintGenerator.Generate("abc"));
+
+    [Fact]
+    public void Noise_amps_in_range_and_stable_per_seed()
+    {
+        for (uint seed = 1; seed < 40; seed++)
+        {
+            var fp = FingerprintGenerator.Generate(Version, TargetOs.Windows, seed);
+            Assert.InRange(fp.CanvasRate, 5, 40);
+            Assert.InRange(fp.WebglRate, 32, 128);
+            Assert.InRange(fp.AudioAmp, 5e-6, 3e-5);
+            Assert.InRange(fp.RectsAmp, 0.005, 0.05);
+
+            var again = FingerprintGenerator.Generate(Version, TargetOs.Windows, seed);
+            Assert.Equal(fp.CanvasRate, again.CanvasRate);
+            Assert.Equal(fp.AudioAmp, again.AudioAmp);
+        }
+    }
+}
+
+public class WebGlPresetsTests
+{
+    [Theory]
+    [InlineData("ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 (0x00002504) Direct3D11 vs_5_0 ps_5_0, D3D11)")]
+    [InlineData("ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)")]
+    [InlineData("ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)")]
+    [InlineData("totally unknown renderer")]
+    public void BuildParamsJson_matches_contract_schema(string renderer)
+    {
+        var json = WebGlPresets.BuildParamsJson(renderer);
+        var root = System.Text.Json.Nodes.JsonNode.Parse(json)!.AsObject();
+
+        var @params = root["params"]!.AsObject();
+        Assert.NotEmpty(@params);
+        Assert.NotNull(@params["3379"]);        // MAX_TEXTURE_SIZE present as decimal key
+        Assert.Equal(2, root["params"]!["3386"]!.AsArray().Count); // MAX_VIEWPORT_DIMS is [x,y]
+
+        Assert.True(root["exts"]!.AsArray().Count > 5);
+        Assert.Contains(root["exts"]!.AsArray(), e => e!.GetValue<string>() == "WEBGL_debug_renderer_info");
+
+        var precisions = root["precisions"]!.AsObject();
+        Assert.Equal(3, precisions["35632:36338"]!.AsArray().Count); // FRAGMENT_SHADER:HIGH_FLOAT -> [min,max,precision]
+    }
+
+    [Fact]
+    public void Base64_roundtrips_to_the_json()
+    {
+        var json = WebGlPresets.BuildParamsJson("ANGLE (NVIDIA, NVIDIA GeForce RTX 4060, D3D11)");
+        var b64 = WebGlPresets.ToBase64(json);
+        var decoded = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(b64));
+        Assert.Equal(json, decoded);
+    }
+
+    [Fact]
+    public void Apple_and_nvidia_presets_differ()
+    {
+        var apple = WebGlPresets.BuildParamsJson("ANGLE (Apple, ANGLE Metal Renderer: Apple M2, Unspecified Version)");
+        var nvidia = WebGlPresets.BuildParamsJson("ANGLE (NVIDIA, NVIDIA GeForce RTX 3060, D3D11)");
+        Assert.NotEqual(apple, nvidia);
+    }
 }
 
 public class SpoofPlanTests

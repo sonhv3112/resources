@@ -74,7 +74,7 @@
             </Grid>
             <TextBox Text="{Binding UserAgent}" TextWrapping="Wrap" FontSize="12" FontFamily="Menlo,Consolas,monospace" />
 
-            <Grid ColumnDefinitions="*,16,*,16,*">
+            <Grid ColumnDefinitions="*,16,*,16,*,16,*">
               <StackPanel>
                 <TextBlock Classes="label" Text="CPU (số nhân)" />
                 <NumericUpDown Value="{Binding HardwareConcurrency}" Minimum="1" Maximum="64" FormatString="0" />
@@ -87,7 +87,16 @@
                 <TextBlock Classes="label" Text="Độ phân giải" />
                 <TextBox Text="{Binding ScreenText}" />
               </StackPanel>
+              <StackPanel Grid.Column="6">
+                <TextBlock Classes="label" Text="Tỉ lệ điểm ảnh (DPR)" />
+                <NumericUpDown Value="{Binding DevicePixelRatio}" Minimum="0.5" Maximum="4" Increment="0.25" FormatString="0.##" />
+              </StackPanel>
             </Grid>
+
+            <CheckBox IsChecked="{Binding UaMobile}" Margin="0,8,0,0"
+                      Content="Thiết bị di động (navigator.userAgentData.mobile = true)" />
+            <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
+                       Text="Nền tảng và kiến trúc CPU được đặt tự động theo hệ điều hành giả lập." />
 
             <TextBlock Classes="label" Text="WebGL vendor / renderer" />
             <TextBox Text="{Binding WebGlVendor}" FontSize="12" />

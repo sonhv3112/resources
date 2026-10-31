@@ -58,6 +58,8 @@ public partial class ProfileEditorViewModel : ObservableObject
     [ObservableProperty] private decimal? _hardwareConcurrency;
     [ObservableProperty] private decimal? _deviceMemory;
     [ObservableProperty] private string _screenText = "";
+    [ObservableProperty] private decimal? _devicePixelRatio;
+    [ObservableProperty] private bool _uaMobile;
     [ObservableProperty] private Option<NoiseMode> _canvas;
     [ObservableProperty] private Option<NoiseMode> _webGlImage;
     [ObservableProperty] private Option<NoiseMode> _audio;
@@ -142,6 +144,8 @@ public partial class ProfileEditorViewModel : ObservableObject
         HardwareConcurrency = fp.HardwareConcurrency;
         DeviceMemory = fp.DeviceMemory;
         ScreenText = $"{fp.ScreenWidth}x{fp.ScreenHeight}";
+        DevicePixelRatio = (decimal)fp.DevicePixelRatio;
+        UaMobile = fp.UaMobile;
         Canvas = NoiseOptions.First(o => o.Value == fp.Canvas);
         WebGlImage = NoiseOptions.First(o => o.Value == fp.WebGlImage);
         Audio = NoiseOptions.First(o => o.Value == fp.Audio);
@@ -229,6 +233,7 @@ public partial class ProfileEditorViewModel : ObservableObject
         else if (IsGeoCustom && (!TryCoord(Latitude, 90, out _) || !TryCoord(Longitude, 180, out _)))
             Error = "Toạ độ không hợp lệ.";
         else if (!TryParseScreen(ScreenText, out _, out _)) Error = "Độ phân giải phải có dạng 1920x1080.";
+        else if (DevicePixelRatio is null or < 0.5m or > 4m) Error = "Tỉ lệ điểm ảnh (DPR) phải trong khoảng 0.5–4.";
         return Error.Length == 0;
     }
 
@@ -271,6 +276,8 @@ public partial class ProfileEditorViewModel : ObservableObject
             fp.WindowWidth = Math.Min(fp.WindowWidth, fp.AvailWidth);
             fp.WindowHeight = Math.Min(fp.WindowHeight, fp.AvailHeight);
         }
+        if (DevicePixelRatio is { } dpr) fp.DevicePixelRatio = (double)dpr;
+        fp.UaMobile = UaMobile;
         fp.Canvas = Canvas.Value;
         fp.WebGlImage = WebGlImage.Value;
         fp.Audio = Audio.Value;
