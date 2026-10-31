@@ -11,6 +11,8 @@ public sealed class AppPaths
     public string DatabaseFile => Path.Combine(Root, "gpmlite.db");
     public string ProfilesDir => Path.Combine(Root, "profiles");
     public string ExtensionsDir => Path.Combine(Root, "extensions");
+    /// <summary>Folder for custom rotating-proxy provider manifests (*.json). See <c>RouteProxyService</c>.</summary>
+    public string RouteProvidersDir => Path.Combine(Root, "route-providers");
     public string SettingsFile => Path.Combine(Root, "settings.json");
 
     public AppPaths(string? root = null)
@@ -19,6 +21,7 @@ public sealed class AppPaths
         Directory.CreateDirectory(Root);
         Directory.CreateDirectory(ProfilesDir);
         Directory.CreateDirectory(ExtensionsDir);
+        Directory.CreateDirectory(RouteProvidersDir);
     }
 
     public static string DefaultRoot()
@@ -105,6 +108,14 @@ public sealed class Database
                 );
                 PRAGMA user_version = 1;
                 """, transaction: tx);
+            tx.Commit();
+        }
+        if (version < 2)
+        {
+            using var tx = c.BeginTransaction();
+            // Last concrete proxy a route:... entry resolved to (for display / quick reuse).
+            c.Execute("ALTER TABLE proxies ADD COLUMN route_resolved TEXT NOT NULL DEFAULT '';", transaction: tx);
+            c.Execute("PRAGMA user_version = 2;", transaction: tx);
             tx.Commit();
         }
     }
@@ -249,7 +260,8 @@ public sealed class Repository(Database db)
     {
         using var c = db.Open();
         return c.Query<SavedProxy>("""
-            SELECT id AS Id, raw AS Raw, note AS Note, last_check AS LastCheck, created_at AS CreatedAt
+            SELECT id AS Id, raw AS Raw, note AS Note, last_check AS LastCheck,
+                   route_resolved AS RouteResolved, created_at AS CreatedAt
             FROM proxies ORDER BY created_at DESC
             """).ToList();
     }
@@ -258,8 +270,10 @@ public sealed class Repository(Database db)
     {
         using var c = db.Open();
         c.Execute("""
-            INSERT INTO proxies (id, raw, note, last_check, created_at) VALUES (@Id, @Raw, @Note, @LastCheck, @CreatedAt)
-            ON CONFLICT(id) DO UPDATE SET raw = excluded.raw, note = excluded.note, last_check = excluded.last_check
+            INSERT INTO proxies (id, raw, note, last_check, route_resolved, created_at)
+            VALUES (@Id, @Raw, @Note, @LastCheck, @RouteResolved, @CreatedAt)
+            ON CONFLICT(id) DO UPDATE SET raw = excluded.raw, note = excluded.note,
+                last_check = excluded.last_check, route_resolved = excluded.route_resolved
             """, p);
     }
 

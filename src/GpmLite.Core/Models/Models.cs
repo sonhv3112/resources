@@ -39,8 +39,14 @@ public sealed class Tag
 public sealed class SavedProxy
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    /// <summary>Either a concrete proxy string or a rotating-proxy reference <c>route:&lt;prefix&gt;:&lt;apiKey&gt;</c>.</summary>
     public string Raw { get; set; } = "";
     public string Note { get; set; } = "";
     public string LastCheck { get; set; } = "";
+    /// <summary>For a <c>route:</c> entry, the last concrete proxy it resolved to (empty for plain proxies).</summary>
+    public string RouteResolved { get; set; } = "";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>True when <see cref="Raw"/> is a rotating ("route") proxy reference.</summary>
+    public bool IsRoute => Proxy.RouteProxy.IsRoute(Raw);
 }

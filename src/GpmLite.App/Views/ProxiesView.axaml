@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:GpmLite.App.ViewModels"
+             xmlns:proxy="using:GpmLite.Core.Proxy"
              x:Class="GpmLite.App.Views.ProxiesView"
              x:DataType="vm:ProxiesViewModel">
   <DockPanel>
@@ -18,15 +19,39 @@
         <Button Classes="primary" Content="+  Thêm proxy" Command="{Binding AddCommand}" HorizontalAlignment="Left" />
       </StackPanel>
     </Border>
+    <Border DockPanel.Dock="Top" Classes="card" Padding="12" Margin="0,0,0,10">
+      <StackPanel Spacing="8">
+        <TextBlock FontWeight="SemiBold" Text="Proxy xoay (route)" />
+        <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
+                   Text="Chọn nhà cung cấp và nhập API key. Mục được lưu dạng route:&lt;prefix&gt;:&lt;apiKey&gt; và tự phân giải ra IP cụ thể khi kiểm tra / đổi IP. Thêm provider tuỳ chỉnh bằng file JSON trong thư mục route-providers." />
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+          <ComboBox Grid.Column="0" MinWidth="200" ItemsSource="{Binding RouteProviders}"
+                    SelectedItem="{Binding SelectedProvider}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="proxy:RouteProvider">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <TextBox Grid.Column="1" Text="{Binding RouteApiKey}" FontFamily="Menlo,Consolas,monospace"
+                   Watermark="API key (vd: id:secret hoặc token)" />
+          <Button Grid.Column="2" Classes="primary" Content="+  Thêm route" Command="{Binding AddRouteCommand}" />
+        </Grid>
+      </StackPanel>
+    </Border>
     <Border Classes="card" ClipToBounds="True">
       <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column">
         <DataGrid.Columns>
           <DataGridTextColumn Header="Proxy" Binding="{Binding Raw}" Width="2*" x:DataType="vm:ProxyRow" FontFamily="Menlo,Consolas,monospace" />
           <DataGridTextColumn Header="Kết quả kiểm tra" Binding="{Binding Status}" Width="2*" x:DataType="vm:ProxyRow" />
-          <DataGridTemplateColumn Header="Thao tác" Width="180">
+          <DataGridTemplateColumn Header="Thao tác" Width="320">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate x:DataType="vm:ProxyRow">
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="6,0">
+                  <Button Classes="link" Content="Kiểm tra" IsVisible="{Binding IsRoute}"
+                          Command="{Binding $parent[UserControl].((vm:ProxiesViewModel)DataContext).TestRouteCommand}" CommandParameter="{Binding}" />
+                  <Button Classes="link" Content="Đổi IP" IsVisible="{Binding IsRoute}"
+                          Command="{Binding $parent[UserControl].((vm:ProxiesViewModel)DataContext).ChangeIpCommand}" CommandParameter="{Binding}" />
                   <Button Classes="link" Content="Sao chép"
                           Command="{Binding $parent[UserControl].((vm:ProxiesViewModel)DataContext).CopyCommand}" CommandParameter="{Binding}" />
                   <Button Classes="link" Foreground="{StaticResource Danger}" Content="Xoá"

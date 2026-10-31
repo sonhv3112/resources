@@ -70,20 +70,39 @@ public partial class ProxyRow(SavedProxy proxy) : ObservableObject
 {
     public SavedProxy Proxy { get; } = proxy;
     public string Raw => Proxy.Raw;
+    public bool IsRoute => Proxy.IsRoute;
     [ObservableProperty] private string _status = proxy.LastCheck;
     [ObservableProperty] private bool _isSelected;
 }
 
-public partial class ProxiesViewModel(ProfileService service) : ObservableObject
+public partial class ProxiesViewModel : ObservableObject
 {
+    private readonly ProfileService _service;
+    private readonly RouteProxyService _routes;
+
     public ObservableCollection<ProxyRow> Rows { get; } = [];
     [ObservableProperty] private string _input = "";
     [ObservableProperty] private bool _isChecking;
 
+    // ---- route proxy section ----
+    public ObservableCollection<RouteProvider> RouteProviders { get; } = [];
+    [ObservableProperty] private RouteProvider? _selectedProvider;
+    [ObservableProperty] private string _routeApiKey = "";
+
+    public ProxiesViewModel(ProfileService service)
+    {
+        _service = service;
+        _routes = RouteProxyService.Create(
+            service.Paths.RouteProvidersDir,
+            publicIpProvider: async ct => (await new ProxyChecker(service.Settings.IpLookupUrl).CheckAsync(null, ct: ct)).Ip);
+        foreach (var p in _routes.Providers) RouteProviders.Add(p);
+        SelectedProvider = RouteProviders.FirstOrDefault();
+    }
+
     public void Reload()
     {
         Rows.Clear();
-        foreach (var p in service.Repo.ListProxies()) Rows.Add(new ProxyRow(p));
+        foreach (var p in _service.Repo.ListProxies()) Rows.Add(new ProxyRow(p));
     }
 
     [RelayCommand]
@@ -98,7 +117,7 @@ public partial class ProxiesViewModel(ProfileService service) : ObservableObject
         }
         var existing = Rows.Select(r => r.Raw).ToHashSet();
         foreach (var l in lines.Where(l => !existing.Contains(l)))
-            service.Repo.UpsertProxy(new SavedProxy { Raw = l });
+            _service.Repo.UpsertProxy(new SavedProxy { Raw = l });
         Input = "";
         Reload();
     }
@@ -116,28 +135,105 @@ public partial class ProxiesViewModel(ProfileService service) : ObservableObject
                 try
                 {
                     row.Status = "Đang kiểm tra...";
-                    var info = await service.CheckProxyAsync(row.Raw);
+                    var info = row.IsRoute
+                        ? await CheckRouteAsync(row)
+                        : await _service.CheckProxyAsync(row.Raw);
                     row.Status = $"✓ {info.Summary} · {info.LatencyMs}ms";
                 }
                 catch (Exception e) { row.Status = $"✗ {e.Message}"; }
                 finally { gate.Release(); }
                 row.Proxy.LastCheck = row.Status;
-                service.Repo.UpsertProxy(row.Proxy);
+                _service.Repo.UpsertProxy(row.Proxy);
             }));
         }
         finally { IsChecking = false; }
+    }
+
+    /// <summary>Resolves a route entry to a concrete proxy, remembers it, then checks that proxy's IP.</summary>
+    private async Task<IpInfo> CheckRouteAsync(ProxyRow row)
+    {
+        var cfg = await _routes.ResolveRawAsync(row.Raw);
+        row.Proxy.RouteResolved = cfg.ToString();
+        return await _service.CheckProxyAsync($"{cfg.Host}:{cfg.Port}"
+            + (cfg.HasAuth ? $":{cfg.Username}:{cfg.Password}" : ""));
     }
 
     [RelayCommand]
     private async Task DeleteAsync(ProxyRow row)
     {
         if (!await Dialogs.ConfirmAsync("Xoá proxy", $"Xoá {row.Raw}?")) return;
-        service.Repo.DeleteProxy(row.Proxy.Id);
+        _service.Repo.DeleteProxy(row.Proxy.Id);
         Reload();
     }
 
     [RelayCommand]
     private Task Copy(ProxyRow row) => Dialogs.CopyAsync(row.Raw);
+
+    // ---- route proxy commands ----
+
+    [RelayCommand]
+    private void AddRoute()
+    {
+        if (SelectedProvider is null) return;
+        var key = RouteApiKey.Trim();
+        if (key.Length == 0)
+        {
+            Dialogs.Notify("Thiếu API key", "Nhập API key của provider.", error: true);
+            return;
+        }
+        var raw = RouteProxy.Format(SelectedProvider.Prefix, key);
+        if (Rows.Any(r => r.Raw.Equals(raw, StringComparison.OrdinalIgnoreCase)))
+        {
+            Dialogs.Notify("Trùng", "Route proxy này đã có.", error: true);
+            return;
+        }
+        _service.Repo.UpsertProxy(new SavedProxy { Raw = raw, Note = SelectedProvider.DisplayName });
+        RouteApiKey = "";
+        Reload();
+    }
+
+    [RelayCommand]
+    private async Task TestRouteAsync(ProxyRow row)
+    {
+        if (!row.IsRoute) return;
+        row.Status = "Đang phân giải...";
+        try
+        {
+            var cfg = await _routes.ResolveRawAsync(row.Raw);
+            row.Proxy.RouteResolved = cfg.ToString();
+            var info = await _service.CheckProxyAsync($"{cfg.Host}:{cfg.Port}"
+                + (cfg.HasAuth ? $":{cfg.Username}:{cfg.Password}" : ""));
+            row.Status = $"✓ {info.Summary} · {info.LatencyMs}ms";
+        }
+        catch (Exception e) { row.Status = $"✗ {e.Message}"; }
+        row.Proxy.LastCheck = row.Status;
+        _service.Repo.UpsertProxy(row.Proxy);
+    }
+
+    [RelayCommand]
+    private async Task ChangeIpAsync(ProxyRow row)
+    {
+        if (!row.IsRoute || !RouteProxy.TryParse(row.Raw, out var prefix, out var key)) return;
+        var provider = _routes.Find(prefix);
+        if (provider is null)
+        {
+            Dialogs.Notify("Không rõ provider", $"Không tìm thấy provider '{prefix}'.", error: true);
+            return;
+        }
+        row.Status = "Đang đổi IP...";
+        try
+        {
+            var cfg = await _routes.ChangeIpAsync(provider, key);
+            row.Proxy.RouteResolved = cfg.ToString();
+            var info = await _service.CheckProxyAsync($"{cfg.Host}:{cfg.Port}"
+                + (cfg.HasAuth ? $":{cfg.Username}:{cfg.Password}" : ""));
+            row.Status = $"✓ IP mới: {info.Summary} · {info.LatencyMs}ms";
+            Dialogs.Notify("Đã đổi IP", info.Summary);
+        }
+        catch (Exception e) { row.Status = $"✗ {e.Message}"; Dialogs.Notify("Đổi IP thất bại", e.Message, error: true); }
+        row.Proxy.LastCheck = row.Status;
+        _service.Repo.UpsertProxy(row.Proxy);
+    }
 }
 
 public sealed record ExtensionRow(string Name, string Folder);
@@ -188,6 +284,10 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private decimal? _localApiPort;
     [ObservableProperty] private bool _checkProxyOnStart;
 
+    /// <summary>Built-in IP-checker presets shown in the dropdown (last item = custom URL).</summary>
+    public ObservableCollection<CheckerServer> CheckerServers { get; } = [];
+    [ObservableProperty] private CheckerServer? _selectedChecker;
+
     public string DataFolder => _service.Paths.Root;
 
     public SettingsViewModel(ProfileService service, Action onCoreChanged)
@@ -200,7 +300,23 @@ public partial class SettingsViewModel : ObservableObject
         _localApiEnabled = s.LocalApiEnabled;
         _localApiPort = s.LocalApiPort;
         _checkProxyOnStart = s.CheckProxyOnStart;
+        foreach (var srv in ProxyChecker.BuiltinServers) CheckerServers.Add(srv);
+        _selectedChecker = ProxyChecker.ResolveServer(s.IpLookupUrl) is { Id: "custom" } custom
+            ? AddCustom(custom)
+            : CheckerServers.FirstOrDefault(c => c.Url.Equals(s.IpLookupUrl, StringComparison.OrdinalIgnoreCase));
         Detect();
+    }
+
+    private CheckerServer AddCustom(CheckerServer custom)
+    {
+        CheckerServers.Add(custom);
+        return custom;
+    }
+
+    partial void OnSelectedCheckerChanged(CheckerServer? value)
+    {
+        // Picking a preset fills the URL box; the box stays editable for custom services.
+        if (value is not null && value.Id != "custom") IpLookupUrl = value.Url;
     }
 
     private void Detect()
