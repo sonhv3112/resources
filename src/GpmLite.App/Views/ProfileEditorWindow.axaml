@@ -138,6 +138,32 @@
                 <TextBox Text="{Binding WebRtcPublicIp}" Watermark="IP công khai (trống = lấy từ proxy)" Margin="0,6,0,0" IsVisible="{Binding IsWebRtcAltered}" />
               </StackPanel>
             </Grid>
+
+            <Separator Margin="0,16,0,4" />
+
+            <TextBlock Classes="label" Text="navigator.vendor" />
+            <TextBox Text="{Binding Vendor}" FontSize="12" Watermark="Google Inc." />
+
+            <TextBlock Classes="label" Text="Danh sách font (mỗi dòng hoặc phân cách bằng dấu phẩy; trống = không giới hạn)" />
+            <TextBox Text="{Binding Fonts}" AcceptsReturn="True" Height="110" FontSize="12"
+                     FontFamily="Menlo,Consolas,monospace" TextWrapping="Wrap"
+                     Watermark="Arial, Calibri, Segoe UI, Times New Roman, ..." />
+
+            <TextBlock Classes="label" Text="Thiết bị media (enumerateDevices)" />
+            <Grid ColumnDefinitions="*,16,*,16,*">
+              <StackPanel>
+                <TextBlock Classes="label" Text="Micro (audio in)" />
+                <NumericUpDown Value="{Binding AudioInputs}" Minimum="0" Maximum="8" FormatString="0" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="label" Text="Loa (audio out)" />
+                <NumericUpDown Value="{Binding AudioOutputs}" Minimum="0" Maximum="8" FormatString="0" />
+              </StackPanel>
+              <StackPanel Grid.Column="4">
+                <TextBlock Classes="label" Text="Camera (video in)" />
+                <NumericUpDown Value="{Binding VideoInputs}" Minimum="0" Maximum="8" FormatString="0" />
+              </StackPanel>
+            </Grid>
           </StackPanel>
         </ScrollViewer>
       </TabItem>

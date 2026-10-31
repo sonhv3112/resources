@@ -71,6 +71,11 @@ public partial class ProfileEditorViewModel : ObservableObject
     [ObservableProperty] private string _longitude = "";
     [ObservableProperty] private Option<WebRtcMode> _webRtc;
     [ObservableProperty] private string _webRtcPublicIp = "";
+    [ObservableProperty] private string _vendor = "";
+    [ObservableProperty] private string _fonts = "";
+    [ObservableProperty] private decimal? _audioInputs;
+    [ObservableProperty] private decimal? _audioOutputs;
+    [ObservableProperty] private decimal? _videoInputs;
     [ObservableProperty] private bool _osChangedWarning;
 
     [ObservableProperty] private string _error = "";
@@ -150,7 +155,16 @@ public partial class ProfileEditorViewModel : ObservableObject
         Longitude = fp.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture);
         WebRtc = WebRtcOptions.First(o => o.Value == fp.WebRtc);
         WebRtcPublicIp = fp.WebRtcPublicIp;
+        Vendor = fp.Vendor;
+        // Show one family per line for easier editing; stored back as comma-separated.
+        Fonts = string.Join("\n", SplitFonts(fp.Fonts));
+        AudioInputs = fp.AudioInputs;
+        AudioOutputs = fp.AudioOutputs;
+        VideoInputs = fp.VideoInputs;
     }
+
+    private static IEnumerable<string> SplitFonts(string s) =>
+        s.Split(new[] { ',', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     partial void OnSelectedOsChanged(Option<TargetOs> value)
     {
@@ -270,6 +284,11 @@ public partial class ProfileEditorViewModel : ObservableObject
         if (TryCoord(Longitude, 180, out var lon)) fp.Longitude = lon;
         fp.WebRtc = WebRtc.Value;
         fp.WebRtcPublicIp = WebRtcPublicIp.Trim();
+        fp.Vendor = Vendor.Trim();
+        fp.Fonts = string.Join(",", SplitFonts(Fonts));
+        fp.AudioInputs = (int)(AudioInputs ?? fp.AudioInputs);
+        fp.AudioOutputs = (int)(AudioOutputs ?? fp.AudioOutputs);
+        fp.VideoInputs = (int)(VideoInputs ?? fp.VideoInputs);
         return fp;
     }
 }

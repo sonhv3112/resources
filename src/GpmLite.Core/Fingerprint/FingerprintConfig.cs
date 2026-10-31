@@ -75,6 +75,11 @@ public sealed class FingerprintConfig
     public int AudioOutputs { get; set; } = 1;
     public int VideoInputs { get; set; } = 1;
 
+    /// <summary>navigator.vendor value; "Google Inc." on real Chrome. User-editable.</summary>
+    public string Vendor { get; set; } = "Google Inc.";
+    /// <summary>Comma-separated font family whitelist; empty = don't restrict the font surface.</summary>
+    public string Fonts { get; set; } = "";
+
     // Window
     public int WindowWidth { get; set; } = 1280;
     public int WindowHeight { get; set; } = 800;

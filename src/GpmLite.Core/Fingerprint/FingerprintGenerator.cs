@@ -56,6 +56,29 @@ public static class FingerprintGenerator
     private static readonly int[] MacCores = [8, 8, 10, 12];
     private static readonly int[] Memories = [4, 8, 8, 8];
 
+    // Standard font families shipped with each OS; used as the default whitelist so the
+    // font surface matches the spoofed OS instead of the host's real fonts.
+    private static readonly string[] WindowsFonts =
+    [
+        "Arial", "Arial Black", "Calibri", "Cambria", "Cambria Math", "Comic Sans MS", "Consolas",
+        "Courier New", "Georgia", "Impact", "Lucida Console", "Lucida Sans Unicode", "Microsoft Sans Serif",
+        "Palatino Linotype", "Segoe UI", "Tahoma", "Times New Roman", "Trebuchet MS", "Verdana", "Wingdings",
+    ];
+
+    private static readonly string[] MacFonts =
+    [
+        "Helvetica", "Helvetica Neue", "Arial", "Arial Black", "Times", "Times New Roman", "Courier",
+        "Courier New", "Menlo", "Monaco", "Geneva", "Georgia", "Verdana", "Trebuchet MS", "Palatino",
+        "Gill Sans", "Lucida Grande", "Apple Color Emoji", "Hoefler Text", "Optima",
+    ];
+
+    private static readonly string[] LinuxFonts =
+    [
+        "DejaVu Sans", "DejaVu Serif", "DejaVu Sans Mono", "Liberation Sans", "Liberation Serif",
+        "Liberation Mono", "Ubuntu", "Ubuntu Mono", "Noto Sans", "Noto Serif", "Noto Mono",
+        "FreeSans", "FreeSerif", "FreeMono", "Cantarell",
+    ];
+
     public static TargetOs HostOs =>
         RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? TargetOs.MacOs
         : RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? TargetOs.Windows
@@ -99,6 +122,7 @@ public static class FingerprintGenerator
                 fp.AvailWidth = screen.W;
                 fp.AvailHeight = screen.H - 25 - rng.Next(0, 2) * 70; // menu bar, optionally the dock
                 fp.ColorDepth = 30;
+                fp.Fonts = string.Join(",", MacFonts);
                 break;
             case TargetOs.Linux:
                 gpu = Pick(rng, LinuxGpus);
@@ -112,6 +136,7 @@ public static class FingerprintGenerator
                 fp.AvailWidth = screen.W;
                 fp.AvailHeight = screen.H - 27;
                 fp.ColorDepth = 24;
+                fp.Fonts = string.Join(",", LinuxFonts);
                 break;
             default:
                 gpu = Pick(rng, WindowsGpus);
@@ -125,6 +150,7 @@ public static class FingerprintGenerator
                 fp.AvailWidth = screen.W;
                 fp.AvailHeight = screen.H - 40; // taskbar
                 fp.ColorDepth = 24;
+                fp.Fonts = string.Join(",", WindowsFonts);
                 break;
         }
 
@@ -155,6 +181,7 @@ public static class FingerprintGenerator
         next.GeoMode = current.GeoMode;
         next.Latitude = current.Latitude;
         next.Longitude = current.Longitude;
+        next.Vendor = current.Vendor;
         return next;
     }
 

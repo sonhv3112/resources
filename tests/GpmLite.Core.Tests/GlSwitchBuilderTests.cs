@@ -60,6 +60,9 @@ public class GlSwitchBuilderTests
             "--gl-rects-noise",
             "--gl-webrtc=proxy",
             "--gl-vendor=Google Inc.",
+            "--gl-media-audioinputs=1",
+            "--gl-media-audiooutputs=1",
+            "--gl-media-videoinputs=1",
             $"--user-agent={fp.UserAgent}",
             "--lang=en-US",
             "--accept-lang=en-US,en",
@@ -113,6 +116,80 @@ public class GlSwitchBuilderTests
         fp.Platform = "MacIntel";
         var gl = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null));
         Assert.Contains("--gl-platform=MacIntel", gl.Args);
+    }
+
+    [Fact]
+    public void Fonts_switch_only_when_non_empty()
+    {
+        var fp = WindowsSample();
+        // default sample has no font whitelist
+        var gl = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null));
+        Assert.DoesNotContain(gl.Args, a => a.StartsWith("--gl-fonts", StringComparison.Ordinal));
+
+        fp.Fonts = "Arial,Segoe UI,Tahoma";
+        gl = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null));
+        Assert.Contains("--gl-fonts=Arial,Segoe UI,Tahoma", gl.Args);
+    }
+
+    [Fact]
+    public void Vendor_switch_reflects_fp_vendor_and_falls_back_when_blank()
+    {
+        var fp = WindowsSample();
+        fp.Vendor = "Apple Computer, Inc.";
+        var gl = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null));
+        Assert.Contains("--gl-vendor=Apple Computer, Inc.", gl.Args);
+
+        fp.Vendor = "";
+        gl = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null));
+        Assert.Contains("--gl-vendor=Google Inc.", gl.Args);
+    }
+
+    [Fact]
+    public void Media_device_counts_are_emitted()
+    {
+        var fp = WindowsSample();
+        fp.AudioInputs = 2;
+        fp.AudioOutputs = 3;
+        fp.VideoInputs = 0;
+        var gl = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null));
+        Assert.Contains("--gl-media-audioinputs=2", gl.Args);
+        Assert.Contains("--gl-media-audiooutputs=3", gl.Args);
+        Assert.Contains("--gl-media-videoinputs=0", gl.Args);
+    }
+
+    [Fact]
+    public void Geo_switches_present_when_plan_geo_set()
+    {
+        var fp = WindowsSample();
+        fp.GeoMode = AutoMode.Custom;
+        fp.Latitude = 10.5;
+        fp.Longitude = 106.75;
+        fp.GeoAccuracy = 35;
+        var plan = SpoofPlan.Resolve(fp, null);
+        Assert.NotNull(plan.Geo);
+        var gl = GlSwitchBuilder.Build(plan);
+        Assert.Contains("--gl-geo-lat=10.5", gl.Args);
+        Assert.Contains("--gl-geo-lon=106.75", gl.Args);
+        Assert.Contains("--gl-geo-accuracy=35", gl.Args);
+    }
+
+    [Fact]
+    public void Geo_switches_absent_when_geo_real()
+    {
+        var fp = WindowsSample(); // GeoMode = Real
+        var gl = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null));
+        Assert.DoesNotContain(gl.Args, a => a.StartsWith("--gl-geo-", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(TargetOs.Windows)]
+    [InlineData(TargetOs.MacOs)]
+    [InlineData(TargetOs.Linux)]
+    public void Generator_populates_non_empty_fonts_per_os(TargetOs os)
+    {
+        var fp = FingerprintGenerator.Generate("156.0.8078.76", os, seed: 42);
+        Assert.False(string.IsNullOrWhiteSpace(fp.Fonts));
+        Assert.True(fp.Fonts.Split(',').Length >= 5);
     }
 
     [Fact]
