@@ -137,6 +137,7 @@ def main() -> int:
         return 1
     cmd = sys.argv[1]
     raw = sys.argv[2] if len(sys.argv) > 2 else sys.stdin.read()
+    raw = raw.lstrip("﻿")  # tolerate a UTF-8 BOM from the caller's stdin writer
     try:
         req = json.loads(raw) if raw.strip() else {}
     except json.JSONDecodeError as e:
@@ -158,4 +159,10 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    # When frozen with PyInstaller, multiprocessing (pulled in by playwright/camoufox) re-executes
+    # this binary to spawn workers. Without freeze_support() the child re-runs main() and prints a
+    # second, bogus JSON line — which the caller may read instead of the real reply. This must be the
+    # first thing that runs in the child.
+    import multiprocessing
+    multiprocessing.freeze_support()
     sys.exit(main())

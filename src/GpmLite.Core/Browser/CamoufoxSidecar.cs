@@ -111,16 +111,20 @@ public sealed class CamoufoxSidecar
         var stdout = await stdoutTask;
         var stderr = await stderrTask;
 
-        // The sidecar prints one JSON object on the last non-empty stdout line.
-        var line = stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .LastOrDefault(l => l.StartsWith('{'));
-        if (line is null)
+        // Parse every JSON-object line the sidecar printed. A frozen (PyInstaller) sidecar can emit
+        // extra stray lines, so don't just trust the last one: take all valid {"ok":...} objects and
+        // prefer a successful one; fall back to the last object (which carries a real error message).
+        var objects = new List<JsonObject>();
+        foreach (var raw in stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!raw.StartsWith('{')) continue;
+            try { if (JsonNode.Parse(raw) is JsonObject o && o["ok"] is not null) objects.Add(o); }
+            catch (JsonException) { /* skip stray non-JSON output */ }
+        }
+        if (objects.Count == 0)
             throw new LaunchException($"Camoufox sidecar produced no JSON (exit {proc.ExitCode}): {stderr.Trim()}");
 
-        JsonObject obj;
-        try { obj = JsonNode.Parse(line) as JsonObject ?? throw new JsonException("not an object"); }
-        catch (JsonException e) { throw new LaunchException($"Camoufox sidecar returned invalid JSON: {e.Message}"); }
-
+        var obj = objects.FirstOrDefault(o => o["ok"]?.GetValue<bool>() == true) ?? objects[^1];
         if (obj["ok"]?.GetValue<bool>() != true)
             throw new LaunchException($"Camoufox sidecar error: {obj["error"]?.GetValue<string>() ?? "unknown"}");
         return obj;
