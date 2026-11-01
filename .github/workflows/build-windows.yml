@@ -40,11 +40,27 @@ jobs:
       - name: Fetch Camoufox macOS binary
         run: ../.camoufox-venv/bin/python -m camoufox fetch
 
+      - name: Locate Camoufox.app
+        id: camoufox
+        run: |
+          app="$(find "$HOME/Library/Caches" "$HOME" -maxdepth 6 -type d -name 'Camoufox.app' 2>/dev/null | head -1)"
+          if [ -z "$app" ]; then echo "Camoufox.app not found after fetch" >&2; exit 1; fi
+          echo "Found Camoufox.app: $app"
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+
       - name: Freeze sidecar
         run: ./scripts/build-sidecar.sh
 
       - name: Package .app + .dmg
-        run: ./scripts/package-macos.sh osx-arm64
+        env:
+          CAMOUFOX_APP: ${{ steps.camoufox.outputs.app }}
+        run: |
+          ./scripts/package-macos.sh osx-arm64
+          res="dist/GpmLite.app/Contents/Resources"
+          # Fail loudly if the engine payloads didn't get bundled.
+          test -d "$res/camoufox/Camoufox.app" || { echo "Camoufox not bundled" >&2; exit 1; }
+          test -x "$res/sidecar/gpmlite-camoufox-sidecar/gpmlite-camoufox-sidecar" || { echo "sidecar not bundled" >&2; exit 1; }
+          echo "=== dmg size ===" ; ls -lh dist/GpmLite.dmg
 
       - name: Upload dmg artifact
         uses: actions/upload-artifact@v4
