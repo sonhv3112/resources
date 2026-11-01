@@ -30,6 +30,15 @@ dotnet publish "$ROOT/src/GpmLite.App/GpmLite.App.csproj" -c Release -r "$RID" -
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp -R "$PUBLISH/." "$APP/Contents/MacOS/"
 
+# App icon (shown in Finder, Dock, and the About panel).
+ICNS="$ROOT/assets/AppIcon.icns"
+if [ -f "$ICNS" ]; then
+  cp "$ICNS" "$APP/Contents/Resources/AppIcon.icns"
+  echo "App icon bundled: AppIcon.icns"
+else
+  echo "WARNING: $ICNS not found — app will use the generic icon."
+fi
+
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -41,6 +50,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleVersion</key><string>${VERSION}</string>
   <key>CFBundleShortVersionString</key><string>${VERSION}</string>
   <key>CFBundleExecutable</key><string>GpmLite</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
   <key>NSHighResolutionCapable</key><true/>
@@ -55,6 +65,16 @@ if [ -d "$CAMOUFOX_APP" ]; then
   echo "Bundling Camoufox from: $CAMOUFOX_APP"
   mkdir -p "$APP/Contents/Resources/camoufox"
   cp -R "$CAMOUFOX_APP" "$APP/Contents/Resources/camoufox/"
+  # version.json is a SIBLING of Camoufox.app in the install dir; Camoufox's pkgman needs it next to
+  # the app or it fails with "Version information not found ... run `camoufox fetch`" on fresh machines.
+  VJSON="$(dirname "$CAMOUFOX_APP")/version.json"
+  if [ -f "$VJSON" ]; then
+    cp "$VJSON" "$APP/Contents/Resources/camoufox/version.json"
+    echo "  version.json bundled: $(cat "$APP/Contents/Resources/camoufox/version.json")"
+  else
+    echo "ERROR: version.json not found next to Camoufox.app ($VJSON). The app will fail on fresh machines." >&2
+    exit 1
+  fi
   echo "  Camoufox bundled ($(du -sh "$APP/Contents/Resources/camoufox/Camoufox.app" | cut -f1))"
 else
   echo "WARNING: Camoufox not found at $CAMOUFOX_APP — run 'python -m camoufox fetch' or set CAMOUFOX_APP."

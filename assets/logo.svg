@@ -1,0 +1,22 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <!-- rounded square background -->
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="url(#bg)"/>
+  <!-- subtle inner highlight -->
+  <rect x="64" y="64" width="896" height="448" rx="208" fill="#ffffff" opacity="0.06"/>
+  <!-- fingerprint: concentric arcs (antidetect motif) -->
+  <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-width="34">
+    <path d="M512 300 C 380 300, 300 400, 300 520" opacity="0.95"/>
+    <path d="M512 300 C 644 300, 724 400, 724 520 C 724 600, 700 660, 660 710" opacity="0.95"/>
+    <path d="M512 372 C 420 372, 372 452, 372 540 C 372 620, 400 680, 440 724" opacity="0.9"/>
+    <path d="M512 372 C 604 372, 652 452, 652 540" opacity="0.9"/>
+    <path d="M512 444 C 456 444, 444 512, 444 560 C 444 636, 470 690, 506 736" opacity="0.85"/>
+    <path d="M512 444 C 568 444, 580 512, 580 560 C 580 640, 556 700, 560 748" opacity="0.85"/>
+    <path d="M512 520 L 512 700" opacity="0.8"/>
+  </g>
+</svg>

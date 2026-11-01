@@ -29,7 +29,35 @@ stored config so they follow the proxy (via geoip) at launch; the hardware/brows
 (navigator, screen, webgl, canvas, fonts) stays pinned.
 """
 import json
+import os
 import sys
+from pathlib import Path
+
+
+def _point_to_bundled_camoufox() -> None:
+    """Make Camoufox use the Camoufox bundled next to this sidecar instead of the per-user cache
+    (~/Library/Caches/camoufox). On a fresh machine that cache does not exist, so camoufox.pkgman
+    would fail with "Version information not found ... run `camoufox fetch`". The bundled install dir
+    holds version.json + Camoufox.app (mac) / camoufox.exe (win). We repoint pkgman.INSTALL_DIR to it;
+    installed_verstr()/launch_path() read that global at call time, so this takes effect everywhere.
+    """
+    candidates = []
+    env_dir = os.environ.get("GPMLITE_CAMOUFOX_DIR")
+    if env_dir:
+        candidates.append(Path(env_dir))
+    # Relative to the frozen executable: <app>/Resources/camoufox (mac) or <app>/camoufox (win).
+    base = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve().parent
+    for up in (base, base.parent, base.parent.parent, base.parent.parent.parent):
+        candidates.append(up / "camoufox")
+    for c in candidates:
+        try:
+            if c and (c / "version.json").exists():
+                import camoufox.pkgman as pk
+                pk.INSTALL_DIR = c
+                os.environ["GPMLITE_CAMOUFOX_DIR"] = str(c)
+                return
+        except Exception:
+            pass  # fall back to Camoufox's default (per-user cache) — dev machines have it
 
 # Keys that should follow the proxy (geoip) rather than be pinned to the stored identity.
 VOLATILE_PREFIXES = (
@@ -172,6 +200,7 @@ def main() -> int:
     if len(sys.argv) < 2:
         print(json.dumps({"ok": False, "error": "missing command"}))
         return 1
+    _point_to_bundled_camoufox()
     cmd = sys.argv[1]
     raw = sys.argv[2] if len(sys.argv) > 2 else sys.stdin.read()
     raw = raw.lstrip("﻿")  # tolerate a UTF-8 BOM from the caller's stdin writer

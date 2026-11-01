@@ -9,7 +9,13 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>GpmLite</AssemblyName>
     <RootNamespace>GpmLite.App</RootNamespace>
+    <ApplicationIcon>../../assets/app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- App/window logo (shown in the title bar, taskbar and Alt-Tab). -->
+    <AvaloniaResource Include="../../assets/logo_256.png" Link="Assets/logo.png" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.22" />

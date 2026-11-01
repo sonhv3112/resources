@@ -55,6 +55,15 @@ if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
 
 Write-Host "Bundling Camoufox ..."
 Copy-Item -Recurse -Force $CamoufoxDir (Join-Path $app "camoufox")
+# Camoufox's pkgman needs version.json in the install dir or it fails on fresh machines
+# ("Version information not found ... run camoufox fetch"). Ensure it got bundled.
+if (-not (Test-Path (Join-Path $app "camoufox\version.json"))) {
+  $vj = Join-Path (Split-Path -Parent $CamoufoxDir) "version.json"
+  if (Test-Path $vj) { Copy-Item -Force $vj (Join-Path $app "camoufox\version.json") }
+}
+if (-not (Test-Path (Join-Path $app "camoufox\version.json"))) {
+  throw "version.json not found in bundled camoufox dir. The app would fail on fresh machines. CamoufoxDir=$CamoufoxDir"
+}
 
 Write-Host "Bundling frozen sidecar ..."
 New-Item -ItemType Directory -Force -Path (Join-Path $app "sidecar") | Out-Null
