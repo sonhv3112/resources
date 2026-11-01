@@ -88,14 +88,41 @@ def cmd_generate(req: dict) -> dict:
 def cmd_spec(req: dict) -> dict:
     from camoufox.utils import launch_options
 
+    # Screen/window dimensions are machine-specific: a config generated on a 1728px-wide display
+    # crashes Camoufox on a 1512px monitor ("needs 1728 pixels, but this monitor has 1512").
+    # Drop those keys so Camoufox fits the window to the CURRENT monitor (it always constrains to it).
+    # The stable identity (navigator/webgl/canvas/fonts/audio) is kept.
+    config = dict(req.get("config") or {})
+    for k in list(config):
+        if k.startswith(("screen.", "window.", "document.body.")):
+            del config[k]
+
     kw = {
         "os": req.get("os", "windows"),
-        "config": req.get("config") or {},
+        "config": config,
         "headless": bool(req.get("headless", False)),
-        # We replay a config that Camoufox itself generated (coherent), so suppress the
-        # "manually setting properties" guard — this is an intentional, pinned identity.
-        "i_know_what_im_doing": True,
     }
+
+    # Force the OUTER WINDOW to fit the SMALLEST monitor attached. Camoufox's native layer refuses to
+    # launch when window.outerWidth exceeds the monitor ("needs N pixels, but this monitor has M"), and
+    # a fingerprint generated on a big screen (e.g. 1920/1728) otherwise crashes on a 1512 laptop. By
+    # pinning the window to the current machine's smallest display (screeninfo reports LOGICAL px on
+    # macOS, which is exactly what the native check compares), the profile opens on ANY screen size.
+    # The window param drives window.outerWidth/outerHeight in generate_fingerprint(); the reported
+    # screen.* stays realistic for the launching machine. Margins leave room for the menu bar/taskbar.
+    try:
+        from screeninfo import get_monitors
+        mons = [m for m in get_monitors() if m.width and m.height]
+        if mons:
+            min_w = min(m.width for m in mons)
+            min_h = min(m.height for m in mons)
+            kw["window"] = (max(800, min_w - 40), max(600, min_h - 120))
+    except Exception:
+        pass  # fall back to Camoufox's default window handling
+
+    # We replay a config that Camoufox itself generated (coherent), so suppress the
+    # "manually setting properties" guard — this is an intentional, pinned identity.
+    kw["i_know_what_im_doing"] = True
     if req.get("executable_path"):
         kw["executable_path"] = req["executable_path"]
     if req.get("proxy"):
@@ -107,7 +134,17 @@ def cmd_spec(req: dict) -> dict:
     if req.get("locale"):
         kw["locale"] = req["locale"]
 
-    opts = launch_options(**kw)
+    # Resilience: a geoip lookup can fail (no network for geoip=true, an unreachable maxmind entry,
+    # a weird proxy IP). Never let that stop the profile from opening — retry without geoip so the
+    # browser still launches (timezone just won't be pinned to the IP). One rollout, no hard failures.
+    try:
+        opts = launch_options(**kw)
+    except Exception:
+        if "geoip" in kw:
+            kw.pop("geoip", None)
+            opts = launch_options(**kw)
+        else:
+            raise
     # launch_options merges the whole current environ; return ONLY the Camoufox-specific
     # vars so the .NET app can inherit its own environment and nothing leaks into the browser.
     full_env = opts.get("env", {}) or {}

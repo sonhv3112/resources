@@ -51,17 +51,45 @@
 
       <!-- Proxy -->
       <TabItem Header="Proxy">
-        <StackPanel Margin="8,0,8,16">
-          <TextBlock Classes="label" Text="Proxy (để trống = kết nối trực tiếp)" />
-          <TextBox Text="{Binding Proxy}" FontFamily="Menlo,Consolas,monospace"
-                   Watermark="host:port:user:pass  ·  socks5://user:pass@host:port" />
-          <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
-                     Text="Hỗ trợ HTTP, SOCKS4, SOCKS5 (kể cả có user/pass). DNS được phân giải phía proxy." />
-          <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,12,0,0">
-            <Button Classes="ghost" Content="Kiểm tra proxy" Command="{Binding CheckProxyCommand}" IsEnabled="{Binding !IsCheckingProxy}" />
-            <TextBlock Text="{Binding ProxyCheckResult}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="520" />
+        <ScrollViewer>
+          <StackPanel Margin="8,0,8,16">
+            <TextBlock Classes="label" Text="Loại proxy" />
+            <ComboBox ItemsSource="{Binding ProxyKindOptions}" SelectedItem="{Binding SelectedProxyKind}" HorizontalAlignment="Stretch" />
+
+            <StackPanel IsVisible="{Binding IsProxyEnabled}">
+              <Grid ColumnDefinitions="2*,12,*" Margin="0,12,0,0">
+                <StackPanel>
+                  <TextBlock Classes="label" Text="Host / IP" />
+                  <TextBox Text="{Binding ProxyHost}" Watermark="vd: 1.2.3.4 hoặc proxy.example.com" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Classes="label" Text="Port" />
+                  <TextBox Text="{Binding ProxyPort}" Watermark="8080" />
+                </StackPanel>
+              </Grid>
+              <Grid ColumnDefinitions="*,12,*" Margin="0,4,0,0">
+                <StackPanel>
+                  <TextBlock Classes="label" Text="Tên đăng nhập (nếu có)" />
+                  <TextBox Text="{Binding ProxyUsername}" Watermark="username" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Classes="label" Text="Mật khẩu (nếu có)" />
+                  <TextBox Text="{Binding ProxyPassword}" PasswordChar="•" Watermark="password" />
+                </StackPanel>
+              </Grid>
+              <TextBlock Classes="muted" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap"
+                         Text="Chỉ nhập tên đăng nhập / mật khẩu khi proxy yêu cầu xác thực. DNS được phân giải phía proxy để tránh lộ IP thật." />
+              <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,14,0,0">
+                <Button Classes="primary" Content="Kiểm tra proxy" Command="{Binding CheckProxyCommand}" IsEnabled="{Binding !IsCheckingProxy}" />
+                <TextBlock Text="{Binding ProxyCheckResult}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="480" />
+              </StackPanel>
+            </StackPanel>
+
+            <TextBlock Classes="muted" FontSize="12" Margin="0,14,0,0" TextWrapping="Wrap"
+                       IsVisible="{Binding !IsProxyEnabled}"
+                       Text="Đang dùng kết nối trực tiếp (IP máy thật). Chọn một loại proxy ở trên để ẩn IP và đặt vị trí theo proxy." />
           </StackPanel>
-        </StackPanel>
+        </ScrollViewer>
       </TabItem>
 
       <!-- Fingerprint -->

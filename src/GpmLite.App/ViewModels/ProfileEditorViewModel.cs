@@ -12,6 +12,9 @@ public sealed record Option<T>(T Value, string Label)
     public override string ToString() => Label;
 }
 
+/// <summary>Proxy choices shown in the editor (adds a "None" to <see cref="GpmLite.Core.Proxy.ProxyType"/>).</summary>
+public enum ProxyKind { None, Http, Https, Socks4, Socks5 }
+
 public partial class ProfileEditorViewModel : ObservableObject
 {
     private readonly ProfileService _service;
@@ -31,11 +34,11 @@ public partial class ProfileEditorViewModel : ObservableObject
     ];
     public static List<Option<AutoMode>> AutoOptions { get; } =
     [
-        new(AutoMode.Auto, "Tự động theo IP"), new(AutoMode.Custom, "Tuỳ chỉnh"), new(AutoMode.Real, "Thật (theo máy)"),
+        new(AutoMode.Auto, "Dựa theo IP proxy"), new(AutoMode.Custom, "Tuỳ chỉnh"), new(AutoMode.Real, "Theo máy thật"),
     ];
     public static List<Option<WebRtcMode>> WebRtcOptions { get; } =
     [
-        new(WebRtcMode.Altered, "Thay IP bằng IP proxy"), new(WebRtcMode.Disabled, "Tắt WebRTC"), new(WebRtcMode.Real, "Thật"),
+        new(WebRtcMode.Altered, "Thay bằng IP proxy"), new(WebRtcMode.Disabled, "Tắt WebRTC"), new(WebRtcMode.Real, "Theo máy thật"),
     ];
 
     // ---- General ----
@@ -45,11 +48,73 @@ public partial class ProfileEditorViewModel : ObservableObject
     [ObservableProperty] private string _startupUrls = "";
     [ObservableProperty] private Option<TargetOs> _selectedOs;
 
-    // ---- Proxy ----
-    [ObservableProperty] private string _proxy = "";
+    // ---- Proxy (GPM-style structured fields) ----
+    public static List<Option<ProxyKind>> ProxyKindOptions { get; } =
+    [
+        new(ProxyKind.None, "Không dùng proxy (kết nối trực tiếp)"),
+        new(ProxyKind.Http, "HTTP"),
+        new(ProxyKind.Https, "HTTPS"),
+        new(ProxyKind.Socks4, "SOCKS4"),
+        new(ProxyKind.Socks5, "SOCKS5"),
+    ];
+    [ObservableProperty] private Option<ProxyKind> _selectedProxyKind = ProxyKindOptions[0];
+    [ObservableProperty] private string _proxyHost = "";
+    [ObservableProperty] private string _proxyPort = "";
+    [ObservableProperty] private string _proxyUsername = "";
+    [ObservableProperty] private string _proxyPassword = "";
     [ObservableProperty] private string _proxyCheckResult = "";
     [ObservableProperty] private bool _isCheckingProxy;
     public string? ProxyStatus { get; private set; }
+
+    public bool IsProxyEnabled => SelectedProxyKind.Value != ProxyKind.None;
+    partial void OnSelectedProxyKindChanged(Option<ProxyKind> value)
+    {
+        OnPropertyChanged(nameof(IsProxyEnabled));
+        ProxyCheckResult = "";
+    }
+
+    /// <summary>The combined proxy string the backend stores/parses (empty = direct).</summary>
+    public string Proxy => BuildProxyString();
+
+    private string BuildProxyString()
+    {
+        if (SelectedProxyKind.Value == ProxyKind.None) return "";
+        var scheme = SelectedProxyKind.Value switch
+        {
+            ProxyKind.Https => "https",
+            ProxyKind.Socks4 => "socks4",
+            ProxyKind.Socks5 => "socks5",
+            _ => "http",
+        };
+        var host = ProxyHost.Trim();
+        var port = ProxyPort.Trim();
+        if (host.Length == 0 || port.Length == 0) return $"{scheme}://{host}:{port}"; // let Validate flag it
+        var cred = !string.IsNullOrEmpty(ProxyUsername)
+            ? $"{Uri.EscapeDataString(ProxyUsername)}:{Uri.EscapeDataString(ProxyPassword ?? "")}@"
+            : "";
+        return $"{scheme}://{cred}{host}:{port}";
+    }
+
+    private void LoadProxy(string? raw)
+    {
+        if (!ProxyConfig.TryParse(raw, out var cfg, out _) || cfg is null)
+        {
+            SelectedProxyKind = ProxyKindOptions[0];
+            ProxyHost = ProxyPort = ProxyUsername = ProxyPassword = "";
+            return;
+        }
+        var kind = cfg.Type switch
+        {
+            ProxyType.Socks4 => ProxyKind.Socks4,
+            ProxyType.Socks5 => ProxyKind.Socks5,
+            _ => (raw ?? "").TrimStart().StartsWith("https", StringComparison.OrdinalIgnoreCase) ? ProxyKind.Https : ProxyKind.Http,
+        };
+        SelectedProxyKind = ProxyKindOptions.First(o => o.Value == kind);
+        ProxyHost = cfg.Host;
+        ProxyPort = cfg.Port.ToString();
+        ProxyUsername = cfg.Username ?? "";
+        ProxyPassword = cfg.Password ?? "";
+    }
 
     // ---- Fingerprint ----
     [ObservableProperty] private string _userAgent = "";
@@ -127,9 +192,9 @@ public partial class ProfileEditorViewModel : ObservableObject
             Name = p.Name,
             Note = p.Note,
             StartupUrls = p.StartupUrls,
-            Proxy = p.Proxy,
             ProxyCheckResult = p.ProxyStatus,
         };
+        vm.LoadProxy(p.Proxy);
         vm.SelectedGroup = vm.Groups.FirstOrDefault(g => g.Id == p.GroupId) ?? vm.Groups[0];
         return vm;
     }
@@ -204,6 +269,11 @@ public partial class ProfileEditorViewModel : ObservableObject
     [RelayCommand]
     private async Task CheckProxyAsync()
     {
+        if (!IsProxyEnabled)
+        {
+            ProxyCheckResult = "Chọn loại proxy và nhập thông tin trước khi kiểm tra.";
+            return;
+        }
         if (!ProxyConfig.TryParse(Proxy, out _, out var err))
         {
             ProxyCheckResult = $"Sai định dạng: {err}";
@@ -226,6 +296,8 @@ public partial class ProfileEditorViewModel : ObservableObject
     {
         Error = "";
         if (string.IsNullOrWhiteSpace(Name)) Error = "Tên hồ sơ không được để trống.";
+        else if (IsProxyEnabled && string.IsNullOrWhiteSpace(ProxyHost)) Error = "Proxy: chưa nhập Host/IP.";
+        else if (IsProxyEnabled && string.IsNullOrWhiteSpace(ProxyPort)) Error = "Proxy: chưa nhập Port.";
         else if (!ProxyConfig.TryParse(Proxy, out _, out var perr)) Error = $"Proxy: {perr}";
         else if (HardwareConcurrency is null or < 1 or > 64) Error = "Số nhân CPU phải trong khoảng 1–64.";
         else if (DeviceMemory is null or < 1 or > 8) Error = "RAM (GB) phải trong khoảng 1–8 (giới hạn của Chrome).";
