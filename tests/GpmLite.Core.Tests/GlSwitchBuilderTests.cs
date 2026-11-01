@@ -71,6 +71,7 @@ public class GlSwitchBuilderTests
             "--gl-media-audioinputs=1",
             "--gl-media-audiooutputs=1",
             "--gl-media-videoinputs=1",
+            $"--gl-voices={VoicePresets.BuildVoicesBase64(fp.Os)}",
             "--gl-ua-platform=Windows",
             "--gl-ua-platform-version=15.0.0",
             "--gl-ua-arch=x86",
@@ -123,6 +124,45 @@ public class GlSwitchBuilderTests
         fp.WebRtc = mode;
         var gl = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null));
         Assert.Contains($"--gl-webrtc={expected}", gl.Args);
+    }
+
+    [Fact]
+    public void Voices_switch_always_emitted_and_matches_os()
+    {
+        var fp = WindowsSample();
+        var args = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null)).Args;
+        Assert.Contains($"--gl-voices={VoicePresets.BuildVoicesBase64(TargetOs.Windows)}", args);
+
+        fp.Os = TargetOs.MacOs;
+        var macArgs = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null)).Args;
+        Assert.Contains($"--gl-voices={VoicePresets.BuildVoicesBase64(TargetOs.MacOs)}", macArgs);
+        // The voice payload differs between Windows and macOS.
+        Assert.DoesNotContain($"--gl-voices={VoicePresets.BuildVoicesBase64(TargetOs.Windows)}", macArgs);
+    }
+
+    [Fact]
+    public void Webrtc_ip_emitted_only_when_altered_and_ip_known()
+    {
+        // Altered + resolved public IP → switch present.
+        var fp = WindowsSample(); // WebRtc = Altered
+        fp.WebRtcPublicIp = "203.0.113.7";
+        var args = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null)).Args;
+        Assert.Contains("--gl-webrtc-ip=203.0.113.7", args);
+
+        // Altered but no IP → absent.
+        fp.WebRtcPublicIp = "";
+        args = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, null)).Args;
+        Assert.DoesNotContain(args, a => a.StartsWith("--gl-webrtc-ip", StringComparison.Ordinal));
+
+        // IP comes from the proxy lookup (Auto) → present.
+        var ip = new IpInfo("198.51.100.9", "VN", "Vietnam", "HCM", "HCMC", 10.8, 106.6, "Asia/Ho_Chi_Minh", 10);
+        args = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, ip)).Args;
+        Assert.Contains("--gl-webrtc-ip=198.51.100.9", args);
+
+        // Not Altered → absent even with an IP.
+        fp.WebRtc = WebRtcMode.Real;
+        args = GlSwitchBuilder.Build(SpoofPlan.Resolve(fp, ip)).Args;
+        Assert.DoesNotContain(args, a => a.StartsWith("--gl-webrtc-ip", StringComparison.Ordinal));
     }
 
     [Fact]

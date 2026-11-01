@@ -48,6 +48,11 @@ public static class GlSwitchBuilder
         if (fp.ClientRects == NoiseMode.Noise) { args.Add("--gl-rects-noise"); args.Add($"--gl-rects-amp={Num(fp.RectsAmp)}"); }
 
         args.Add($"--gl-webrtc={WebRtcSwitch(fp.WebRtc)}");
+        // WebRTC ICE → proxy IP: only in Altered mode and only when the plan resolved a public IP.
+        // The patch rewrites host/srflx candidates + SDP to this IP; absent = leave candidates unchanged.
+        if (fp.WebRtc == WebRtcMode.Altered && !string.IsNullOrWhiteSpace(plan.WebRtcPublicIp))
+            args.Add($"--gl-webrtc-ip={plan.WebRtcPublicIp}");
+
         // navigator.vendor; "Google Inc." on real Chrome but user-overridable. Fall back when blank.
         var vendor = string.IsNullOrWhiteSpace(fp.Vendor) ? "Google Inc." : fp.Vendor;
         args.Add($"--gl-vendor={vendor}");
@@ -59,6 +64,9 @@ public static class GlSwitchBuilder
         args.Add($"--gl-media-audioinputs={fp.AudioInputs}");
         args.Add($"--gl-media-audiooutputs={fp.AudioOutputs}");
         args.Add($"--gl-media-videoinputs={fp.VideoInputs}");
+
+        // speechSynthesis voices for the profile's OS: always emitted (gated by --gl-enabled).
+        args.Add($"--gl-voices={VoicePresets.BuildVoicesBase64(fp.Os)}");
 
         // Geolocation: emitted when the plan resolved a position (Auto from IP or Custom).
         if (plan.Geo is { } geo)

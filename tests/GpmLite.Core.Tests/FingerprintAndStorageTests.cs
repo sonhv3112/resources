@@ -123,6 +123,45 @@ public class WebGlPresetsTests
         Assert.Equal(3, precisions["35632:36338"]!.AsArray().Count); // FRAGMENT_SHADER:HIGH_FLOAT -> [min,max,precision]
     }
 
+    [Theory]
+    [InlineData("ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)")]
+    [InlineData("ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)")]
+    [InlineData("ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)")]
+    [InlineData("totally unknown renderer")]
+    public void BuildParamsJson_covers_webgl2_only_keys(string renderer)
+    {
+        var json = WebGlPresets.BuildParamsJson(renderer);
+        var @params = System.Text.Json.Nodes.JsonNode.Parse(json)!["params"]!.AsObject();
+
+        // Every WebGL2-only getParameter key from the WAVE3 contract must be present so a WebGL2
+        // context never falls through to the real host value.
+        string[] webgl2Keys =
+        [
+            "32883", // MAX_3D_TEXTURE_SIZE
+            "35071", // MAX_ARRAY_TEXTURE_LAYERS
+            "34852", // MAX_DRAW_BUFFERS
+            "36063", // MAX_COLOR_ATTACHMENTS
+            "36183", // MAX_SAMPLES
+            "35375", // MAX_UNIFORM_BUFFER_BINDINGS
+            "35371", // MAX_VERTEX_UNIFORM_BLOCKS
+            "35373", // MAX_FRAGMENT_UNIFORM_BLOCKS
+            "35374", // MAX_COMBINED_UNIFORM_BLOCKS
+            "35376", // MAX_UNIFORM_BLOCK_SIZE
+            "35659", // MAX_VARYING_COMPONENTS
+            "37154", // MAX_VERTEX_OUTPUT_COMPONENTS
+            "37157", // MAX_FRAGMENT_INPUT_COMPONENTS
+            "36203", // MAX_ELEMENT_INDEX
+            "34045", // MAX_TEXTURE_LOD_BIAS
+        ];
+        foreach (var k in webgl2Keys)
+            Assert.NotNull(@params[k]);
+
+        // Spot-check a couple of exact decimal values are realistic positive numbers.
+        Assert.True(@params["32883"]!.GetValue<int>() >= 256);    // MAX_3D_TEXTURE_SIZE
+        Assert.True(@params["35376"]!.GetValue<long>() >= 16384); // MAX_UNIFORM_BLOCK_SIZE
+        Assert.True(@params["36203"]!.GetValue<long>() > 0);      // MAX_ELEMENT_INDEX
+    }
+
     [Fact]
     public void Base64_roundtrips_to_the_json()
     {
@@ -138,6 +177,55 @@ public class WebGlPresetsTests
         var apple = WebGlPresets.BuildParamsJson("ANGLE (Apple, ANGLE Metal Renderer: Apple M2, Unspecified Version)");
         var nvidia = WebGlPresets.BuildParamsJson("ANGLE (NVIDIA, NVIDIA GeForce RTX 3060, D3D11)");
         Assert.NotEqual(apple, nvidia);
+    }
+}
+
+public class VoicePresetsTests
+{
+    [Theory]
+    [InlineData(TargetOs.Windows)]
+    [InlineData(TargetOs.MacOs)]
+    [InlineData(TargetOs.Linux)]
+    public void BuildVoicesJson_is_non_empty_and_well_formed(TargetOs os)
+    {
+        var json = VoicePresets.BuildVoicesJson(os);
+        var arr = System.Text.Json.Nodes.JsonNode.Parse(json)!.AsArray();
+        Assert.True(arr.Count >= 5);
+        foreach (var v in arr)
+        {
+            var o = v!.AsObject();
+            Assert.False(string.IsNullOrWhiteSpace(o["name"]!.GetValue<string>()));
+            Assert.False(string.IsNullOrWhiteSpace(o["lang"]!.GetValue<string>()));
+            Assert.NotNull(o["default"]);
+            Assert.NotNull(o["local"]);
+            _ = o["default"]!.GetValue<bool>();
+            _ = o["local"]!.GetValue<bool>();
+        }
+        // Exactly one default voice.
+        Assert.Equal(1, arr.Count(v => v!["default"]!.GetValue<bool>()));
+    }
+
+    [Fact]
+    public void Windows_and_macos_lists_differ()
+    {
+        Assert.NotEqual(VoicePresets.BuildVoicesJson(TargetOs.Windows),
+                        VoicePresets.BuildVoicesJson(TargetOs.MacOs));
+    }
+
+    [Fact]
+    public void Windows_has_sapi_voices_and_macos_has_system_voices()
+    {
+        Assert.Contains("Microsoft David", VoicePresets.BuildVoicesJson(TargetOs.Windows));
+        Assert.Contains("Alex", VoicePresets.BuildVoicesJson(TargetOs.MacOs));
+    }
+
+    [Fact]
+    public void Base64_roundtrips_to_the_json()
+    {
+        var json = VoicePresets.BuildVoicesJson(TargetOs.Windows);
+        var decoded = System.Text.Encoding.UTF8.GetString(
+            Convert.FromBase64String(VoicePresets.BuildVoicesBase64(TargetOs.Windows)));
+        Assert.Equal(json, decoded);
     }
 }
 

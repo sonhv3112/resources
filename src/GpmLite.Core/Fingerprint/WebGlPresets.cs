@@ -48,6 +48,9 @@ public static class WebGlPresets
     private const int MAX_ELEMENT_INDEX = 0x8D6B;           // 36203
     private const int MAX_ELEMENTS_INDICES = 0x80E9;        // 33001
     private const int MAX_ELEMENTS_VERTICES = 0x80E8;       // 33000
+    private const int MAX_VARYING_COMPONENTS = 0x8B4B;      // 35659
+    private const int MAX_VERTEX_OUTPUT_COMPONENTS = 0x9122; // 37154
+    private const int MAX_FRAGMENT_INPUT_COMPONENTS = 0x9125; // 37157
 
     // precision enums
     private const int VERTEX_SHADER = 0x8B31;   // 35633
@@ -80,6 +83,8 @@ public static class WebGlPresets
         int MaxCombinedUniformBlocks,
         int MaxVertexUniformComponents,
         int MaxFragmentUniformComponents,
+        int MaxVertexOutputComponents,
+        int MaxFragmentInputComponents,
         string[] Exts,
         bool HighpEverywhere);
 
@@ -140,6 +145,7 @@ public static class WebGlPresets
         MaxCubeMapTextureSize: 16384, AliasedLineWidthMax: 1, AliasedPointSizeMax: 1024,
         MaxTextureMaxAnisotropy: 16, MaxSamples: 8, MaxUniformBufferBindings: 72,
         MaxCombinedUniformBlocks: 24, MaxVertexUniformComponents: 16384, MaxFragmentUniformComponents: 4096,
+        MaxVertexOutputComponents: 64, MaxFragmentInputComponents: 120,
         Exts: DesktopExts, HighpEverywhere: true);
 
     private static readonly Preset AmdD3D11 = NvidiaD3D11 with { MaxSamples = 8, MaxFragmentUniformComponents = 4096 };
@@ -156,6 +162,7 @@ public static class WebGlPresets
         MaxCubeMapTextureSize: 16384, AliasedLineWidthMax: 1, AliasedPointSizeMax: 511,
         MaxTextureMaxAnisotropy: 16, MaxSamples: 4, MaxUniformBufferBindings: 72,
         MaxCombinedUniformBlocks: 24, MaxVertexUniformComponents: 4096, MaxFragmentUniformComponents: 4096,
+        MaxVertexOutputComponents: 124, MaxFragmentInputComponents: 124,
         Exts: AppleExts, HighpEverywhere: true);
 
     // Mesa OpenGL on Linux: large uniform budgets, 32 varyings, 16384 viewport.
@@ -166,6 +173,7 @@ public static class WebGlPresets
         MaxCubeMapTextureSize: 16384, AliasedLineWidthMax: 1, AliasedPointSizeMax: 2047,
         MaxTextureMaxAnisotropy: 16, MaxSamples: 16, MaxUniformBufferBindings: 84,
         MaxCombinedUniformBlocks: 84, MaxVertexUniformComponents: 16384, MaxFragmentUniformComponents: 16384,
+        MaxVertexOutputComponents: 128, MaxFragmentInputComponents: 128,
         Exts: MesaExts, HighpEverywhere: true);
 
     // Generic safe fallback for an unrecognised renderer (conservative ANGLE/D3D11 shape).
@@ -222,6 +230,9 @@ public static class WebGlPresets
             [Key(MAX_FRAGMENT_UNIFORM_BLOCKS)] = 14,
             [Key(MAX_VERTEX_UNIFORM_COMPONENTS)] = p.MaxVertexUniformComponents,
             [Key(MAX_FRAGMENT_UNIFORM_COMPONENTS)] = p.MaxFragmentUniformComponents,
+            [Key(MAX_VARYING_COMPONENTS)] = p.MaxVaryingVectors * 4,
+            [Key(MAX_VERTEX_OUTPUT_COMPONENTS)] = p.MaxVertexOutputComponents,
+            [Key(MAX_FRAGMENT_INPUT_COMPONENTS)] = p.MaxFragmentInputComponents,
             [Key(MAX_ELEMENT_INDEX)] = 4294967294L,
             [Key(MAX_ELEMENTS_INDICES)] = 4194303,
             [Key(MAX_ELEMENTS_VERTICES)] = 1048575,
