@@ -1,7 +1,7 @@
-name: Build Windows installer
+name: Build installers
 
-# Builds the self-contained Windows package + GpmLite-Setup.exe on a Windows runner,
-# so you get a one-click installer without owning a Windows machine.
+# Builds the self-contained installers on cloud runners, so you get a one-click
+# macOS .dmg and a Windows Setup.exe without owning either machine.
 # Run it from the GitHub "Actions" tab (Run workflow), or it runs on a version tag push.
 
 on:
@@ -10,6 +10,53 @@ on:
     tags: ['v*']
 
 jobs:
+  build-macos:
+    runs-on: macos-14   # Apple Silicon (arm64)
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install sidecar deps (camoufox + pyinstaller)
+        run: |
+          python3 -m venv ../.camoufox-venv
+          ../.camoufox-venv/bin/python -m pip install --upgrade pip
+          ../.camoufox-venv/bin/pip install "camoufox[geoip]" pyinstaller
+
+      - name: Fetch Camoufox macOS binary
+        run: ../.camoufox-venv/bin/python -m camoufox fetch
+
+      - name: Freeze sidecar
+        run: ./scripts/build-sidecar.sh
+
+      - name: Package .app + .dmg
+        run: ./scripts/package-macos.sh osx-arm64
+
+      - name: Upload dmg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GpmLite-macos-dmg
+          path: dist/GpmLite.dmg
+          if-no-files-found: error
+
+      - name: Attach to release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.0
+          files: dist/GpmLite.dmg
+
   build:
     runs-on: windows-latest
     timeout-minutes: 60
@@ -84,6 +131,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v0.1.0
           files: |
             dist/GpmLite-Setup.exe
             dist/GpmLite-win-x64.zip
