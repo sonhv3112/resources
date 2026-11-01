@@ -328,6 +328,7 @@ public sealed class ProfileService
         }
         catch (Exception e)
         {
+            Log?.Invoke(id, $"Open failed: {e}");
             StatusChanged?.Invoke(new ProfileStatus(id, ProfileRunState.Stopped, e.Message));
             throw;
         }

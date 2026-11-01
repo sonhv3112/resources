@@ -126,7 +126,13 @@ public sealed class CamoufoxSidecar
 
         var obj = objects.FirstOrDefault(o => o["ok"]?.GetValue<bool>() == true) ?? objects[^1];
         if (obj["ok"]?.GetValue<bool>() != true)
-            throw new LaunchException($"Camoufox sidecar error: {obj["error"]?.GetValue<string>() ?? "unknown"}");
+        {
+            var err = obj["error"]?.GetValue<string>() ?? "unknown";
+            var trace = obj["trace"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(stderr)) err += $"\n--- sidecar stderr ---\n{stderr.Trim()}";
+            if (!string.IsNullOrWhiteSpace(trace)) err += $"\n--- sidecar trace ---\n{trace.Trim()}";
+            throw new LaunchException($"Camoufox sidecar error: {err}");
+        }
         return obj;
     }
 }

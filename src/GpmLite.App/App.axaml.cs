@@ -31,6 +31,12 @@ public partial class App : Application
             var settings = AppSettings.Load(paths.SettingsFile);
             var repo = new Repository(new Database(paths.DatabaseFile));
             _service = new ProfileService(paths, repo, settings);
+            // Append diagnostics (launch errors, etc.) to <data dir>/gpmlite.log so issues are inspectable.
+            _service.Log += (id, msg) =>
+            {
+                try { System.IO.File.AppendAllText(paths.LogFile, $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss} [{id}] {msg}{Environment.NewLine}"); }
+                catch { /* logging must never crash the app */ }
+            };
 
             string? apiStatus = null;
             if (settings.LocalApiEnabled)

@@ -14,6 +14,8 @@ public sealed class AppPaths
     /// <summary>Folder for custom rotating-proxy provider manifests (*.json). See <c>RouteProxyService</c>.</summary>
     public string RouteProvidersDir => Path.Combine(Root, "route-providers");
     public string SettingsFile => Path.Combine(Root, "settings.json");
+    /// <summary>Diagnostic log (launch errors etc.). Shown to users who ask "where are the logs".</summary>
+    public string LogFile => Path.Combine(Root, "gpmlite.log");
 
     public AppPaths(string? root = null)
     {
