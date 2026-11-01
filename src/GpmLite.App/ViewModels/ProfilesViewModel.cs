@@ -270,6 +270,41 @@ public partial class ProfilesViewModel : ObservableObject
 
     internal Task StopRowAsync(ProfileRow row) => _service.StopAsync(row.Id);
 
+    /// <summary>Opens the selected profiles (or all, if none selected) and tiles their windows into a
+    /// non-overlapping grid that fills the screen — like GPM's "arrange windows".</summary>
+    [RelayCommand]
+    private async Task OpenTiledAsync()
+    {
+        var targets = Rows.Where(r => r.IsSelected && r.State != ProfileRunState.Running).ToList();
+        if (targets.Count == 0)
+            targets = Rows.Where(r => r.State != ProfileRunState.Running).ToList();
+        if (targets.Count == 0) { Dialogs.Notify("Xếp lưới", "Không có hồ sơ nào để mở."); return; }
+
+        // Usable screen area in LOGICAL pixels (Camoufox positions in logical px).
+        var screen = Dialogs.Owner?.Screens.ScreenFromWindow(Dialogs.Owner)
+                     ?? Dialogs.Owner?.Screens.Primary
+                     ?? Dialogs.Owner?.Screens.All.FirstOrDefault();
+        var scale = screen?.Scaling ?? 1.0;
+        var wa = screen?.WorkingArea ?? new Avalonia.PixelRect(0, 0, 1440, 900);
+        int ax = (int)(wa.X / scale), ay = (int)(wa.Y / scale);
+        int aw = (int)(wa.Width / scale), ah = (int)(wa.Height / scale);
+
+        int n = targets.Count;
+        int cols = (int)Math.Ceiling(Math.Sqrt(n));
+        int rows = (int)Math.Ceiling(n / (double)cols);
+        int cw = Math.Max(400, aw / cols), chh = Math.Max(300, ah / rows);
+
+        for (int i = 0; i < n; i++)
+        {
+            int cx = ax + (i % cols) * cw;
+            int cy = ay + (i / cols) * chh;
+            var rect = new Core.Browser.WindowRect(cx, cy, cw, chh);
+            try { await _service.StartAsync(targets[i].Id, rect); }
+            catch { /* surfaced through StatusChanged */ }
+            await Task.Delay(400);
+        }
+    }
+
     internal async Task EditRowAsync(ProfileRow row)
     {
         var p = _service.Repo.GetProfile(row.Id);

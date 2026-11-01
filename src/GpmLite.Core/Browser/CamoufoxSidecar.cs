@@ -53,7 +53,8 @@ public sealed class CamoufoxSidecar
     /// (a proxy exit IP, or <c>true</c> to geolocate the current connection). The executable to launch is the
     /// app's own binary — not forwarded here, so Camoufox validates the config against its own metadata.</summary>
     public async Task<CamoufoxSpec> SpecAsync(string os, JsonObject config, string? executablePath,
-        object? geoip, bool headless, CancellationToken ct = default)
+        object? geoip, bool headless, WindowRect? windowRect = null, IReadOnlyList<string>? addons = null,
+        CancellationToken ct = default)
     {
         var req = new JsonObject
         {
@@ -63,6 +64,10 @@ public sealed class CamoufoxSidecar
         };
         if (geoip is string ip) req["geoip"] = ip;
         else if (geoip is bool b && b) req["geoip"] = true;
+        if (windowRect is { } wr)
+            req["window_rect"] = new JsonObject { ["x"] = wr.X, ["y"] = wr.Y, ["w"] = wr.W, ["h"] = wr.H };
+        if (addons is { Count: > 0 })
+            req["addons"] = new JsonArray(addons.Select(a => (JsonNode)a!).ToArray());
 
         var r = await RunAsync("spec", req, ct);
         var env = new Dictionary<string, string>();

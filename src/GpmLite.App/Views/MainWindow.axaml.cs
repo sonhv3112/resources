@@ -12,9 +12,38 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        // Dev aid: force a window size for snapshot testing at various widths.
+        if (Environment.GetEnvironmentVariable("GPMLITE_WIN_W") is { Length: > 0 } ws && double.TryParse(ws, out var ww))
+            Width = ww;
+        if (Environment.GetEnvironmentVariable("GPMLITE_WIN_H") is { Length: > 0 } hs && double.TryParse(hs, out var hh))
+            Height = hh;
+        // Never let the window be larger than the screen it's on (otherwise the right/bottom — e.g. the
+        // "Thao tác" column — falls off the screen edge and looks cut). Clamp size and nudge on-screen.
+        Opened += (_, _) => ClampToScreen();
+
         // Dev aid: GPMLITE_SNAPSHOT_DIR=/path renders every page to PNG (no screen-recording permission needed).
         if (Environment.GetEnvironmentVariable("GPMLITE_SNAPSHOT_DIR") is { Length: > 0 } dir)
             Opened += async (_, _) => await SnapshotPagesAsync(dir);
+    }
+
+    private void ClampToScreen()
+    {
+        var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+        if (screen is null) return;
+        var scale = screen.Scaling;
+        // WorkingArea excludes the menu bar / dock / taskbar; convert physical px -> logical.
+        var availW = screen.WorkingArea.Width / scale;
+        var availH = screen.WorkingArea.Height / scale;
+        if (Width > availW) Width = availW;
+        if (Height > availH) Height = availH;
+        // Re-center if the window now hangs off the screen edge.
+        var pos = Position;
+        var wa = screen.WorkingArea;
+        var w = (int)(Width * scale);
+        var h = (int)(Height * scale);
+        var x = Math.Max(wa.X, Math.Min(pos.X, wa.X + wa.Width - w));
+        var y = Math.Max(wa.Y, Math.Min(pos.Y, wa.Y + wa.Height - h));
+        if (x != pos.X || y != pos.Y) Position = new PixelPoint(x, y);
     }
 
     private async Task SnapshotPagesAsync(string dir)

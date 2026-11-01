@@ -5,36 +5,40 @@
              x:DataType="vm:ProfilesViewModel">
   <DockPanel>
     <!-- Header -->
-    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
-      <StackPanel>
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*" Margin="0,0,0,8">
+      <StackPanel VerticalAlignment="Center">
         <TextBlock Classes="h1" Text="Danh sách hồ sơ" />
         <TextBlock Classes="muted" FontSize="12" Text="{Binding Summary}" />
       </StackPanel>
-      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+      <WrapPanel Grid.Column="1" Classes="toolbar" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,0,-8">
+        <Button Classes="ghost" Content="⊞ Mở xếp lưới" Command="{Binding OpenTiledCommand}" />
         <Button Classes="ghost" Content="Khôi phục" Command="{Binding RestoreCommand}" />
         <Button Classes="ghost" Content="Nhập từ Excel/CSV" Command="{Binding ImportExcelCommand}" />
         <Button Classes="ghost" Content="Tạo hàng loạt" Command="{Binding BulkCreateCommand}" />
         <Button Classes="primary" Content="+  Tạo hồ sơ" Command="{Binding CreateCommand}" />
-      </StackPanel>
+      </WrapPanel>
     </Grid>
 
     <!-- Toolbar -->
     <Border DockPanel.Dock="Top" Classes="card" Padding="12,10" Margin="0,0,0,10">
-      <Grid ColumnDefinitions="200,300,*,Auto">
-        <ComboBox ItemsSource="{Binding GroupFilter}" SelectedItem="{Binding SelectedGroup}" HorizontalAlignment="Stretch" />
-        <TextBox Grid.Column="1" Margin="8,0,0,0" Watermark="Tìm theo tên, ghi chú, proxy..." Text="{Binding SearchText}" />
-        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" IsVisible="{Binding HasSelection}">
-          <TextBlock VerticalAlignment="Center" Classes="muted" Margin="0,0,6,0">
+      <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <ComboBox Width="190" ItemsSource="{Binding GroupFilter}" SelectedItem="{Binding SelectedGroup}" />
+          <TextBox Grid.Column="1" Margin="8,0,8,0" MinWidth="120" Watermark="Tìm theo tên, ghi chú, proxy..." Text="{Binding SearchText}" />
+          <Button Grid.Column="2" Classes="ghost" Content="⟳ Làm mới" Command="{Binding RefreshCommand}" IsVisible="{Binding !HasSelection}" />
+        </Grid>
+        <WrapPanel Classes="toolbar" IsVisible="{Binding HasSelection}" Margin="0,2,0,-8">
+          <TextBlock VerticalAlignment="Center" Classes="muted" Margin="0,0,8,8">
             <Run Text="Đã chọn" /> <Run Text="{Binding SelectedCount}" FontWeight="SemiBold" />
           </TextBlock>
           <Button Classes="ghost" Content="▶ Mở" Command="{Binding StartSelectedCommand}" />
+          <Button Classes="ghost" Content="⊞ Mở xếp lưới" Command="{Binding OpenTiledCommand}" />
           <Button Classes="ghost" Content="■ Đóng" Command="{Binding StopSelectedCommand}" />
           <Button Classes="ghost" Content="Chuyển nhóm" Command="{Binding MoveSelectedCommand}" />
           <Button Classes="ghost" Content="Đổi fingerprint" Command="{Binding RandomizeSelectedCommand}" />
           <Button Classes="ghost" Foreground="{StaticResource Danger}" Content="Xoá" Command="{Binding DeleteSelectedCommand}" />
-        </StackPanel>
-        <Button Grid.Column="3" Classes="ghost" Content="⟳ Làm mới" Command="{Binding RefreshCommand}" IsVisible="{Binding !HasSelection}" />
-      </Grid>
+        </WrapPanel>
+      </StackPanel>
     </Border>
 
     <!-- Table -->
@@ -42,9 +46,9 @@
       <Grid>
         <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" CanUserResizeColumns="True"
                   CanUserReorderColumns="False" HeadersVisibility="Column" SelectionMode="Extended"
-                  IsReadOnly="True">
+                  IsReadOnly="True" HorizontalScrollBarVisibility="Auto">
           <DataGrid.Columns>
-            <DataGridTemplateColumn Width="44">
+            <DataGridTemplateColumn Width="40">
               <DataGridTemplateColumn.Header>
                 <CheckBox IsChecked="{Binding $parent[UserControl].((vm:ProfilesViewModel)DataContext).AllSelected}" />
               </DataGridTemplateColumn.Header>
@@ -54,8 +58,8 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="50" x:DataType="vm:ProfileRow" />
-            <DataGridTemplateColumn Header="Tên hồ sơ" Width="2*" MinWidth="170" SortMemberPath="Name">
+            <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="40" x:DataType="vm:ProfileRow" />
+            <DataGridTemplateColumn Header="Tên hồ sơ" Width="2*" MinWidth="130" SortMemberPath="Name">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="vm:ProfileRow">
                   <StackPanel VerticalAlignment="Center" Margin="8,0">
@@ -65,8 +69,7 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTextColumn Header="Nhóm" Binding="{Binding GroupName}" Width="*" MinWidth="90" x:DataType="vm:ProfileRow" />
-            <DataGridTemplateColumn Header="Proxy" Width="2*" MinWidth="180">
+            <DataGridTemplateColumn Header="Proxy" Width="2*" MinWidth="135">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="vm:ProfileRow">
                   <StackPanel VerticalAlignment="Center" Margin="8,0">
@@ -76,11 +79,9 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTextColumn Header="Hệ điều hành" Binding="{Binding OsText}" Width="120" x:DataType="vm:ProfileRow" />
-            <DataGridTextColumn Header="Tag" Binding="{Binding TagsText}" Width="0.8*" MinWidth="70" x:DataType="vm:ProfileRow" />
-            <DataGridTextColumn Header="Ghi chú" Binding="{Binding Note}" Width="1.5*" MinWidth="110" x:DataType="vm:ProfileRow" />
-            <DataGridTextColumn Header="Lần mở cuối" Binding="{Binding LastRun}" Width="160" x:DataType="vm:ProfileRow" />
-            <DataGridTemplateColumn Header="Thao tác" Width="170">
+            <DataGridTextColumn Header="HĐH" Binding="{Binding OsText}" Width="85" x:DataType="vm:ProfileRow" />
+            <DataGridTextColumn Header="Lần mở cuối" Binding="{Binding LastRun}" Width="120" x:DataType="vm:ProfileRow" />
+            <DataGridTemplateColumn Header="Thao tác" Width="140">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="vm:ProfileRow">
                   <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="6,0">

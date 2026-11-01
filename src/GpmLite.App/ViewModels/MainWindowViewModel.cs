@@ -47,6 +47,11 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void RefreshCore()
     {
+        if (_service.Settings.Engine == GpmLite.Core.Services.BrowserEngine.Camoufox)
+        {
+            CoreText = "Engine: Camoufox (Firefox)";
+            return;
+        }
         BrowserCore? core = ChromeLocator.Find(_service.Settings.BrowserPath);
         CoreText = core is null ? "Chưa tìm thấy Chrome" : $"Core: Chrome {core.Version}";
     }

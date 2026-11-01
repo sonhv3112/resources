@@ -263,7 +263,7 @@ public sealed class ProfileService
     public IRunningBrowser? GetRunning(string id) => _running.GetValueOrDefault(id);
     public IReadOnlyCollection<IRunningBrowser> RunningBrowsers => _running.Values.ToList();
 
-    public async Task<IRunningBrowser> StartAsync(string id, CancellationToken ct = default)
+    public async Task<IRunningBrowser> StartAsync(string id, WindowRect? tile = null, CancellationToken ct = default)
     {
         if (_running.TryGetValue(id, out var existing)) return existing;
         if (!_starting.TryAdd(id, 0)) throw new InvalidOperationException("Profile is already starting");
@@ -273,7 +273,7 @@ public sealed class ProfileService
             StatusChanged?.Invoke(new ProfileStatus(id, ProfileRunState.Starting));
 
             if (Settings.Engine == BrowserEngine.Camoufox)
-                return await StartCamoufoxAsync(p, ct);
+                return await StartCamoufoxAsync(p, tile, ct);
 
             var (core, mode) = ResolveCore();
             var fp = FingerprintConfig.FromJson(p.FingerprintJson);
@@ -360,7 +360,7 @@ public sealed class ProfileService
 
     /// <summary>Launches a profile with the Camoufox (Firefox) engine. Generates & stores a stable
     /// fingerprint on first run; applies the proxy's geo via the sidecar's geoip each launch.</summary>
-    private async Task<IRunningBrowser> StartCamoufoxAsync(Profile p, CancellationToken ct)
+    private async Task<IRunningBrowser> StartCamoufoxAsync(Profile p, WindowRect? tile, CancellationToken ct)
     {
         var id = p.Id;
         var (binary, sidecar) = ResolveCamoufox();
@@ -409,6 +409,7 @@ public sealed class ProfileService
             Proxy = proxy,
             IpInfo = ip,
             StartupUrls = urls,
+            WindowRect = tile,
         }, ct);
 
         running.Warning += msg => Log?.Invoke(id, msg);

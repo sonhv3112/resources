@@ -131,22 +131,38 @@ def cmd_spec(req: dict) -> dict:
         "headless": bool(req.get("headless", False)),
     }
 
-    # Force the OUTER WINDOW to fit the SMALLEST monitor attached. Camoufox's native layer refuses to
-    # launch when window.outerWidth exceeds the monitor ("needs N pixels, but this monitor has M"), and
-    # a fingerprint generated on a big screen (e.g. 1920/1728) otherwise crashes on a 1512 laptop. By
-    # pinning the window to the current machine's smallest display (screeninfo reports LOGICAL px on
-    # macOS, which is exactly what the native check compares), the profile opens on ANY screen size.
-    # The window param drives window.outerWidth/outerHeight in generate_fingerprint(); the reported
-    # screen.* stays realistic for the launching machine. Margins leave room for the menu bar/taskbar.
-    try:
-        from screeninfo import get_monitors
-        mons = [m for m in get_monitors() if m.width and m.height]
-        if mons:
-            min_w = min(m.width for m in mons)
-            min_h = min(m.height for m in mons)
-            kw["window"] = (max(800, min_w - 40), max(600, min_h - 120))
-    except Exception:
-        pass  # fall back to Camoufox's default window handling
+    rect = req.get("window_rect")
+    if rect:
+        # Tiling: the app assigned this profile a grid cell. Pin the window to it as manual config keys.
+        # merge_into() in launch_options only adds missing keys, so these survive and Camoufox makes the
+        # real window match them (position + size). screen.* stays auto-generated (fits the monitor).
+        w = max(400, int(rect["w"]))
+        h = max(300, int(rect["h"]))
+        x = max(0, int(rect["x"]))
+        y = max(0, int(rect["y"]))
+        config["window.outerWidth"] = w
+        config["window.outerHeight"] = h
+        config["window.innerWidth"] = w
+        config["window.innerHeight"] = max(200, h - 74)  # minus chrome
+        config["window.screenX"] = x
+        config["window.screenY"] = y
+    else:
+        # Force the OUTER WINDOW to fit the SMALLEST monitor attached. Camoufox's native layer refuses to
+        # launch when window.outerWidth exceeds the monitor ("needs N pixels, but this monitor has M"), and
+        # a fingerprint generated on a big screen (e.g. 1920/1728) otherwise crashes on a 1512 laptop. By
+        # pinning the window to the current machine's smallest display (screeninfo reports LOGICAL px on
+        # macOS, which is exactly what the native check compares), the profile opens on ANY screen size.
+        # The window param drives window.outerWidth/outerHeight in generate_fingerprint(); the reported
+        # screen.* stays realistic for the launching machine. Margins leave room for the menu bar/taskbar.
+        try:
+            from screeninfo import get_monitors
+            mons = [m for m in get_monitors() if m.width and m.height]
+            if mons:
+                min_w = min(m.width for m in mons)
+                min_h = min(m.height for m in mons)
+                kw["window"] = (max(800, min_w - 40), max(600, min_h - 120))
+        except Exception:
+            pass  # fall back to Camoufox's default window handling
 
     # We replay a config that Camoufox itself generated (coherent), so suppress the
     # "manually setting properties" guard — this is an intentional, pinned identity.
@@ -161,6 +177,10 @@ def cmd_spec(req: dict) -> dict:
         kw["block_webrtc"] = bool(req["block_webrtc"])
     if req.get("locale"):
         kw["locale"] = req["locale"]
+    if req.get("addons"):
+        # Extra unpacked extensions (e.g. the per-profile title label). launch_options still appends
+        # the default addons (uBlock Origin) on top of these.
+        kw["addons"] = [a for a in req["addons"] if a]
 
     # Resilience: a geoip lookup can fail (no network for geoip=true, an unreachable maxmind entry,
     # a weird proxy IP). Never let that stop the profile from opening — retry without geoip so the

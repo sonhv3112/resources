@@ -114,5 +114,9 @@
       <Setter Property="HorizontalGridLinesBrush" Value="#EEF1F5" />
       <Setter Property="RowHeight" Value="44" />
     </Style>
+    <!-- Responsive toolbars: buttons wrap to the next line instead of being cut when the window is narrow. -->
+    <Style Selector="WrapPanel.toolbar > Button">
+      <Setter Property="Margin" Value="0,0,8,8" />
+    </Style>
   </Application.Styles>
 </Application>
