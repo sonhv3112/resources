@@ -45,6 +45,79 @@ public static partial class ChromeLocator
         }
     }
 
+    /// <summary>Path to the patched GpmLite core shipped inside the app bundle (next to the executable),
+    /// or null when none is bundled. macOS: <c>Contents/Resources/core/Chromium.app/.../Chromium</c>
+    /// (the app runs from <c>Contents/MacOS</c>). Windows/Linux: a <c>core/</c> folder beside the exe.</summary>
+    public static string? BundledCorePath()
+    {
+        var baseDir = AppContext.BaseDirectory;
+        string candidate;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            candidate = Path.GetFullPath(Path.Combine(
+                baseDir, "..", "Resources", "core", "Chromium.app", "Contents", "MacOS", "Chromium"));
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            candidate = Path.GetFullPath(Path.Combine(baseDir, "core", "chrome.exe"));
+        else
+            candidate = Path.GetFullPath(Path.Combine(baseDir, "core", "chrome"));
+
+        return File.Exists(candidate) ? candidate : null;
+    }
+
+    /// <summary>Default Camoufox (Firefox) executable: a <c>camoufox/</c> folder bundled beside the app, else
+    /// the camoufox pip cache. Null when none is found.</summary>
+    public static string? DefaultCamoufoxPath()
+    {
+        var baseDir = AppContext.BaseDirectory;
+        var candidates = new List<string>();
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            candidates.Add(Path.Combine(baseDir, "..", "Resources", "camoufox", "Camoufox.app", "Contents", "MacOS", "camoufox"));
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            candidates.Add(Path.Combine(home, "Library", "Caches", "camoufox", "Camoufox.app", "Contents", "MacOS", "camoufox"));
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            candidates.Add(Path.Combine(baseDir, "camoufox", "camoufox.exe"));
+            var local = Environment.GetEnvironmentVariable("LOCALAPPDATA");
+            if (local is not null) candidates.Add(Path.Combine(local, "camoufox", "camoufox", "camoufox.exe"));
+        }
+        else
+        {
+            candidates.Add(Path.Combine(baseDir, "camoufox", "camoufox"));
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            candidates.Add(Path.Combine(home, ".cache", "camoufox", "camoufox"));
+        }
+        return candidates.Select(Path.GetFullPath).FirstOrDefault(File.Exists);
+    }
+
+    /// <summary>Default path to the frozen standalone Camoufox sidecar binary bundled with the app
+    /// (no Python needed). Null when not bundled (dev builds use <see cref="DefaultSidecarPath"/> + Python).</summary>
+    public static string? DefaultSidecarExe()
+    {
+        var baseDir = AppContext.BaseDirectory;
+        const string dirName = "gpmlite-camoufox-sidecar";
+        var exe = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? dirName + ".exe" : dirName;
+        var candidates = new List<string>();
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            candidates.Add(Path.Combine(baseDir, "..", "Resources", "sidecar", dirName, exe));
+        candidates.Add(Path.Combine(baseDir, "sidecar", dirName, exe));
+        return candidates.Select(Path.GetFullPath).FirstOrDefault(File.Exists);
+    }
+
+    /// <summary>Default path to the Python sidecar script: <c>sidecar/camoufox_sidecar.py</c> beside the app,
+    /// or walking up to the repo's <c>gpm-lite/sidecar/</c> in a dev build. Null when not found.</summary>
+    public static string? DefaultSidecarPath()
+    {
+        const string rel = "sidecar/camoufox_sidecar.py";
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        for (var d = dir; d is not null; d = d.Parent)
+        {
+            var p = Path.Combine(d.FullName, rel.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(p)) return p;
+        }
+        return null;
+    }
+
     /// <summary>Finds the first installed Chrome/Chromium, or the explicitly configured one.</summary>
     public static BrowserCore? Find(string? preferredPath = null)
     {

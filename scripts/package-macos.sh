@@ -10,6 +10,17 @@ DIST="$ROOT/dist"
 APP="$DIST/GpmLite.app"
 PUBLISH="$DIST/publish-$RID"
 
+# --- Engine payloads ---
+# Camoufox (default engine): the Camoufox.app and the frozen Python sidecar binary. Both are bundled so
+# the installed app needs no Python and no separate download.
+CAMOUFOX_APP="${CAMOUFOX_APP:-$HOME/Library/Caches/camoufox/Camoufox.app}"
+SIDECAR_DIST="${SIDECAR_DIST:-$ROOT/../dist-sidecar/gpmlite-camoufox-sidecar}"
+
+# Patched Chromium core (optional, OFF by default to keep the app small). Set INCLUDE_CHROMIUM_CORE=1 to
+# also bundle it. CORE_OUT must contain Chromium.app + its component *.dylib files.
+INCLUDE_CHROMIUM_CORE="${INCLUDE_CHROMIUM_CORE:-0}"
+CORE_OUT="${CORE_OUT:-$ROOT/../chromium-build/chromium/src/out/GpmLite}"
+
 rm -rf "$APP" "$PUBLISH" "$DIST/GpmLite.dmg"
 mkdir -p "$DIST"
 
@@ -38,6 +49,49 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
+
+# --- Bundle Camoufox (default engine) ---
+if [ -d "$CAMOUFOX_APP" ]; then
+  echo "Bundling Camoufox from: $CAMOUFOX_APP"
+  mkdir -p "$APP/Contents/Resources/camoufox"
+  cp -R "$CAMOUFOX_APP" "$APP/Contents/Resources/camoufox/"
+  echo "  Camoufox bundled ($(du -sh "$APP/Contents/Resources/camoufox/Camoufox.app" | cut -f1))"
+else
+  echo "WARNING: Camoufox not found at $CAMOUFOX_APP — run 'python -m camoufox fetch' or set CAMOUFOX_APP."
+fi
+
+# --- Bundle the frozen Camoufox sidecar (no Python needed at runtime) ---
+if [ -d "$SIDECAR_DIST" ]; then
+  echo "Bundling sidecar from: $SIDECAR_DIST"
+  mkdir -p "$APP/Contents/Resources/sidecar"
+  cp -R "$SIDECAR_DIST" "$APP/Contents/Resources/sidecar/"
+  chmod +x "$APP/Contents/Resources/sidecar/gpmlite-camoufox-sidecar/gpmlite-camoufox-sidecar" 2>/dev/null || true
+  echo "  sidecar bundled ($(du -sh "$APP/Contents/Resources/sidecar/gpmlite-camoufox-sidecar" | cut -f1))"
+else
+  echo "WARNING: frozen sidecar not found at $SIDECAR_DIST — build it with scripts/build-sidecar.sh first."
+fi
+
+# --- Bundle the patched Chromium core (optional, self-contained from a component build) ---
+if [ "$INCLUDE_CHROMIUM_CORE" = "1" ] && [ -d "$CORE_OUT/Chromium.app" ]; then
+  echo "Bundling patched core from: $CORE_OUT"
+  CORE_DST="$APP/Contents/Resources/core"
+  mkdir -p "$CORE_DST"
+  cp -R "$CORE_OUT/Chromium.app" "$CORE_DST/"
+  FW="$CORE_DST/Chromium.app/Contents/Frameworks"
+  # Fold the loose component dylibs in (if any) so the core runs outside the build tree.
+  shopt -s nullglob
+  dylibs=("$CORE_OUT"/*.dylib)
+  if [ ${#dylibs[@]} -gt 0 ]; then
+    cp "${dylibs[@]}" "$FW"/
+    echo "  folded ${#dylibs[@]} component dylibs into the core bundle"
+  fi
+  shopt -u nullglob
+  xattr -cr "$CORE_DST/Chromium.app" 2>/dev/null || true
+  codesign --force --deep --sign - "$CORE_DST/Chromium.app"
+  echo "  core bundled ($(du -sh "$CORE_DST/Chromium.app" | cut -f1))"
+else
+  echo "Chromium core: not bundled (Camoufox is the default engine; set INCLUDE_CHROMIUM_CORE=1 to add it)."
+fi
 
 # Ad-hoc signature so Apple Silicon will run the bundle (not notarized).
 codesign --force --deep --sign - "$APP"

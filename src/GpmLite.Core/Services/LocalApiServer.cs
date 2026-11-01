@@ -125,8 +125,8 @@ public sealed class LocalApiServer(ProfileService service) : IAsyncDisposable
                     {
                         profile_id = rb.ProfileId,
                         debugger_address = rb.DebuggerAddress,
-                        ws_endpoint = rb.BrowserWebSocketUrl.ToString(),
-                        browser_path = service.RequireCore().ExecutablePath,
+                        // CDP endpoint is Chromium-only; Camoufox (Firefox) has none.
+                        ws_endpoint = (rb as RunningBrowser)?.BrowserWebSocketUrl.ToString(),
                     },
                 });
 

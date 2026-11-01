@@ -4,14 +4,17 @@ using GpmLite.Core.Models;
 
 namespace GpmLite.Core.Services;
 
-/// <summary>The profile row fields stored alongside the browser storage in a backup zip.</summary>
+/// <summary>The profile row fields stored alongside the browser storage in a backup zip.
+/// <c>CamoufoxConfigJson</c> is optional (older backups omit it) so a restored Camoufox profile
+/// keeps its stable identity instead of regenerating one.</summary>
 public sealed record BackupMetadata(
     string Name,
     string Proxy,
     string Note,
     string GroupName,
     string FingerprintJson,
-    string StartupUrls);
+    string StartupUrls,
+    string CamoufoxConfigJson = "");
 
 /// <summary>
 /// Backs a profile up to a .zip (its Chrome storage dir under <c>profile/</c> plus <c>metadata.json</c>),
@@ -29,7 +32,8 @@ public static class BackupService
         var groupName = p.GroupId is null
             ? ""
             : service.Repo.ListGroups().FirstOrDefault(g => g.Id == p.GroupId)?.Name ?? "";
-        var meta = new BackupMetadata(p.Name, p.Proxy, p.Note, groupName, p.FingerprintJson, p.StartupUrls);
+        var meta = new BackupMetadata(p.Name, p.Proxy, p.Note, groupName, p.FingerprintJson, p.StartupUrls,
+            p.CamoufoxConfigJson);
 
         if (File.Exists(zipPath)) File.Delete(zipPath);
         using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
@@ -45,10 +49,30 @@ public static class BackupService
             foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
             {
                 var rel = Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/');
+                if (ShouldSkip(rel)) continue; // caches / lock files: not worth backing up
                 try { zip.CreateEntryFromFile(file, ProfilePrefix + rel); }
                 catch (IOException) { /* a locked file (profile open) is skipped */ }
             }
         }
+    }
+
+    // Cache & lock/in-use paths excluded from backups (keeps zips small and portable). Matched
+    // case-insensitively against each path segment (Chromium and Firefox profile layouts).
+    private static readonly string[] SkipSegments =
+    [
+        "singletonlock", "singletonsocket", "singletoncookie", "lock", ".parentlock", "parent.lock",
+        "devtoolsactiveport", "cache2", "startupcache", "shader-cache", "gpucache", "cache", "code cache",
+    ];
+
+    private static bool ShouldSkip(string relPath)
+    {
+        foreach (var seg in relPath.Split('/'))
+        {
+            var s = seg.ToLowerInvariant();
+            foreach (var skip in SkipSegments)
+                if (s == skip || s.Contains(skip)) return true;
+        }
+        return false;
     }
 
     /// <summary>Recreates the profile from a backup zip with a new id and storage dir. Returns the new profile.</summary>
@@ -74,6 +98,7 @@ public static class BackupService
             Note = meta.Note,
             StartupUrls = meta.StartupUrls,
             FingerprintJson = string.IsNullOrWhiteSpace(meta.FingerprintJson) ? "{}" : meta.FingerprintJson,
+            CamoufoxConfigJson = meta.CamoufoxConfigJson ?? "",
         };
         p.StoragePath = service.Paths.ProfileDir(p.Id);
         Directory.CreateDirectory(p.StoragePath);

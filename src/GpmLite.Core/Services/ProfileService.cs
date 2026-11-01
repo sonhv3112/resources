@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GpmLite.Core.Browser;
 using GpmLite.Core.Fingerprint;
 using GpmLite.Core.Models;
@@ -8,8 +9,19 @@ using GpmLite.Core.Storage;
 
 namespace GpmLite.Core.Services;
 
+/// <summary>Which browser engine profiles launch: patched Chromium (CDP / native --gl-*) or Camoufox (Firefox).</summary>
+public enum BrowserEngine { Chromium, Camoufox }
+
 public sealed class AppSettings
 {
+    /// <summary>Which engine to launch. Camoufox uses the Python sidecar + Firefox binary; Chromium uses the core/stock Chrome.</summary>
+    public BrowserEngine Engine { get; set; } = BrowserEngine.Camoufox;
+    /// <summary>Camoufox (Firefox) executable. Empty = auto-detect the pip-cache / bundled Camoufox.</summary>
+    public string CamoufoxPath { get; set; } = "";
+    /// <summary>Python interpreter that has the <c>camoufox</c> package installed (runs the sidecar). Empty = "python3" on PATH.</summary>
+    public string PythonPath { get; set; } = "";
+    /// <summary>Path to <c>camoufox_sidecar.py</c>. Empty = resolve next to the app, else the repo's sidecar/ folder.</summary>
+    public string SidecarPath { get; set; } = "";
     /// <summary>Custom Chrome/Chromium executable; empty = auto-detect.</summary>
     public string BrowserPath { get; set; } = "";
     /// <summary>Patched "GpmLite core" Chromium executable. When set and present, profiles launch it with
@@ -47,7 +59,7 @@ public sealed class ProfileService
 {
     private readonly AppPaths _paths;
     private readonly Repository _repo;
-    private readonly ConcurrentDictionary<string, RunningBrowser> _running = new();
+    private readonly ConcurrentDictionary<string, IRunningBrowser> _running = new();
     private readonly ConcurrentDictionary<string, byte> _starting = new();
 
     public AppSettings Settings { get; }
@@ -68,8 +80,19 @@ public sealed class ProfileService
         ChromeLocator.Find(Settings.BrowserPath)
         ?? throw new LaunchException("No Chrome/Chromium found. Install Google Chrome or set a browser path in Settings.");
 
-    /// <summary>Picks the core for a launch: the patched GpmLite core (native switches) when
-    /// <see cref="AppSettings.CustomCorePath"/> is set and exists, otherwise stock Chrome (CDP/JS).</summary>
+    /// <summary>Version string used to seed a new profile's stored <see cref="FingerprintConfig"/>. Uses the
+    /// detected Chrome core, or a placeholder for the Camoufox engine (which builds its own Firefox UA at
+    /// launch via the sidecar — only the config's OS/screen are used, not this Chrome version).</summary>
+    private const string CamoufoxPlaceholderVersion = "159.0.0.0";
+    private string NewProfileCoreVersion()
+    {
+        try { return RequireCore().Version; }
+        catch (LaunchException) when (Settings.Engine == BrowserEngine.Camoufox) { return CamoufoxPlaceholderVersion; }
+    }
+
+    /// <summary>Picks the core for a launch. Priority: (1) an explicit <see cref="AppSettings.CustomCorePath"/>,
+    /// (2) the patched GpmLite core shipped inside the app bundle, both launched in native --gl-* mode;
+    /// otherwise (3) stock Chrome via CDP/JS injection.</summary>
     public (BrowserCore Core, BrowserCoreMode Mode) ResolveCore()
     {
         if (!string.IsNullOrWhiteSpace(Settings.CustomCorePath))
@@ -80,6 +103,11 @@ public sealed class ProfileService
                 ?? throw new LaunchException($"Could not read the GpmLite core version at {Settings.CustomCorePath}");
             return (custom, BrowserCoreMode.Native);
         }
+
+        // No explicit core set: prefer the patched core bundled in the app, if present.
+        if (ChromeLocator.BundledCorePath() is { } bundled && ChromeLocator.Find(bundled) is { } bundledCore)
+            return (bundledCore, BrowserCoreMode.Native);
+
         return (RequireCore(), BrowserCoreMode.Cdp);
     }
 
@@ -90,7 +118,7 @@ public sealed class ProfileService
         if (!string.IsNullOrWhiteSpace(proxy) && !ProxyConfig.TryParse(proxy, out _, out var err))
             throw new ArgumentException($"Invalid proxy: {err}", nameof(proxy));
 
-        var core = RequireCore();
+        var coreVersion = NewProfileCoreVersion();
         var p = new Profile
         {
             Name = string.IsNullOrWhiteSpace(name) ? $"Profile {DateTime.Now:yyMMdd-HHmmss}" : name.Trim(),
@@ -100,7 +128,7 @@ public sealed class ProfileService
             StartupUrls = startupUrls,
         };
         p.StoragePath = _paths.ProfileDir(p.Id);
-        p.FingerprintJson = (fingerprint ?? FingerprintGenerator.Generate(core.Version, os)).ToJson();
+        p.FingerprintJson = (fingerprint ?? FingerprintGenerator.Generate(coreVersion, os)).ToJson();
         _repo.UpsertProfile(p);
         return p;
     }
@@ -191,15 +219,36 @@ public sealed class ProfileService
 
     public void RandomizeFingerprints(IEnumerable<string> ids)
     {
-        var core = RequireCore();
+        var coreVersion = NewProfileCoreVersion();
         foreach (var id in ids)
         {
             var p = _repo.GetProfile(id);
             if (p is null) continue;
-            var fp = FingerprintGenerator.Regenerate(FingerprintConfig.FromJson(p.FingerprintJson), core.Version);
+            var fp = FingerprintGenerator.Regenerate(FingerprintConfig.FromJson(p.FingerprintJson), coreVersion);
             p.FingerprintJson = fp.ToJson();
             _repo.UpsertProfile(p);
         }
+    }
+
+    // ---------- cookies (engine-aware) ----------
+    /// <summary>Exports cookies for a profile. Camoufox reads <c>cookies.sqlite</c> directly (works while
+    /// running); Chromium uses CDP (profile must be running).</summary>
+    public async Task<int> ExportCookiesAsync(string profileId, string filePath, CancellationToken ct = default)
+    {
+        var p = _repo.GetProfile(profileId) ?? throw new KeyNotFoundException($"Profile {profileId} not found");
+        if (Settings.Engine == BrowserEngine.Camoufox)
+            return await FirefoxCookieService.ExportAsync(p.StoragePath, filePath, ct);
+        return await CookieService.ExportAsync(GetRunning(profileId), filePath, ct);
+    }
+
+    /// <summary>Imports cookies for a profile. Camoufox writes <c>cookies.sqlite</c> (profile must be CLOSED);
+    /// Chromium uses CDP (profile must be running).</summary>
+    public async Task<int> ImportCookiesAsync(string profileId, string filePath, CancellationToken ct = default)
+    {
+        var p = _repo.GetProfile(profileId) ?? throw new KeyNotFoundException($"Profile {profileId} not found");
+        if (Settings.Engine == BrowserEngine.Camoufox)
+            return await FirefoxCookieService.ImportAsync(p.StoragePath, filePath, ct);
+        return await CookieService.ImportAsync(GetRunning(profileId), filePath, ct);
     }
 
     // ---------- proxy ----------
@@ -211,10 +260,10 @@ public sealed class ProfileService
 
     // ---------- run ----------
     public bool IsRunning(string id) => _running.ContainsKey(id) || _starting.ContainsKey(id);
-    public RunningBrowser? GetRunning(string id) => _running.GetValueOrDefault(id);
-    public IReadOnlyCollection<RunningBrowser> RunningBrowsers => _running.Values.ToList();
+    public IRunningBrowser? GetRunning(string id) => _running.GetValueOrDefault(id);
+    public IReadOnlyCollection<IRunningBrowser> RunningBrowsers => _running.Values.ToList();
 
-    public async Task<RunningBrowser> StartAsync(string id, CancellationToken ct = default)
+    public async Task<IRunningBrowser> StartAsync(string id, CancellationToken ct = default)
     {
         if (_running.TryGetValue(id, out var existing)) return existing;
         if (!_starting.TryAdd(id, 0)) throw new InvalidOperationException("Profile is already starting");
@@ -222,6 +271,9 @@ public sealed class ProfileService
         {
             var p = _repo.GetProfile(id) ?? throw new KeyNotFoundException($"Profile {id} not found");
             StatusChanged?.Invoke(new ProfileStatus(id, ProfileRunState.Starting));
+
+            if (Settings.Engine == BrowserEngine.Camoufox)
+                return await StartCamoufoxAsync(p, ct);
 
             var (core, mode) = ResolveCore();
             var fp = FingerprintConfig.FromJson(p.FingerprintJson);
@@ -297,10 +349,98 @@ public sealed class ProfileService
         await Task.WhenAll(_running.Keys.ToList().Select(StopAsync));
     }
 
-    private void OnBrowserExited(RunningBrowser rb)
+    private void OnBrowserExited(IRunningBrowser rb)
     {
         _running.TryRemove(rb.ProfileId, out _);
         StatusChanged?.Invoke(new ProfileStatus(rb.ProfileId, ProfileRunState.Stopped));
+    }
+
+    // ---------- Camoufox engine ----------
+
+    /// <summary>Launches a profile with the Camoufox (Firefox) engine. Generates & stores a stable
+    /// fingerprint on first run; applies the proxy's geo via the sidecar's geoip each launch.</summary>
+    private async Task<IRunningBrowser> StartCamoufoxAsync(Profile p, CancellationToken ct)
+    {
+        var id = p.Id;
+        var (binary, sidecar) = ResolveCamoufox();
+        var fp = FingerprintConfig.FromJson(p.FingerprintJson);
+        var os = fp.Os switch
+        {
+            TargetOs.Windows => "windows",
+            TargetOs.MacOs => "macos",
+            TargetOs.Linux => "linux",
+            _ => "windows",
+        };
+
+        // Stable identity: generate once, then reuse the stored config.
+        JsonNode? stored = string.IsNullOrWhiteSpace(p.CamoufoxConfigJson) ? null : JsonNode.Parse(p.CamoufoxConfigJson);
+        if (stored is not JsonObject config)
+        {
+            Log?.Invoke(id, $"Generating Camoufox fingerprint ({os})...");
+            config = await sidecar.GenerateAsync(os, ct);
+            p.CamoufoxConfigJson = config.ToJsonString();
+        }
+
+        var proxy = ProxyConfig.Parse(p.Proxy);
+        IpInfo? ip = null;
+        if (proxy is not null || Settings.CheckProxyOnStart)
+        {
+            try
+            {
+                ip = await new ProxyChecker(Settings.IpLookupUrl).CheckAsync(proxy, ct: ct);
+                p.ProxyStatus = ip.Summary;
+            }
+            catch (Exception e) when (e is IOException or HttpRequestException or TaskCanceledException)
+            {
+                if (proxy is not null) throw new LaunchException($"Proxy check failed: {e.Message}", e);
+                Log?.Invoke(id, $"IP lookup failed, using host geo: {e.Message}");
+            }
+        }
+
+        var urls = p.StartupUrls.Split([',', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var running = await CamoufoxLauncher.LaunchAsync(new CamoufoxLaunchRequest
+        {
+            Profile = p,
+            Config = config,
+            Os = os,
+            ExecutablePath = binary,
+            Sidecar = sidecar,
+            Proxy = proxy,
+            IpInfo = ip,
+            StartupUrls = urls,
+        }, ct);
+
+        running.Warning += msg => Log?.Invoke(id, msg);
+        running.Exited += OnBrowserExited;
+        _running[id] = running;
+        p.LastRunAt = DateTime.UtcNow;
+        _repo.UpsertProfile(p);
+        StatusChanged?.Invoke(new ProfileStatus(id, ProfileRunState.Running));
+        return running;
+    }
+
+    /// <summary>Resolves the Camoufox binary and the Python sidecar from settings, with sensible fallbacks.</summary>
+    private (string Binary, CamoufoxSidecar Sidecar) ResolveCamoufox()
+    {
+        var binary = Settings.CamoufoxPath;
+        if (string.IsNullOrWhiteSpace(binary)) binary = ChromeLocator.DefaultCamoufoxPath() ?? "";
+        if (string.IsNullOrWhiteSpace(binary) || !File.Exists(binary))
+            throw new LaunchException(
+                "Camoufox binary not found. Set it in Settings (CamoufoxPath) or install the camoufox package.");
+
+        // Prefer the frozen standalone sidecar bundled with the app (no Python needed).
+        if (string.IsNullOrWhiteSpace(Settings.PythonPath) && string.IsNullOrWhiteSpace(Settings.SidecarPath)
+            && ChromeLocator.DefaultSidecarExe() is { } frozen)
+            return (binary, CamoufoxSidecar.FromExecutable(frozen));
+
+        var python = string.IsNullOrWhiteSpace(Settings.PythonPath) ? "python3" : Settings.PythonPath;
+        var script = Settings.SidecarPath;
+        if (string.IsNullOrWhiteSpace(script)) script = ChromeLocator.DefaultSidecarPath() ?? "";
+        if (string.IsNullOrWhiteSpace(script) || !File.Exists(script))
+            throw new LaunchException(
+                "Camoufox sidecar not found. Install the bundled build, or set Python + SidecarPath in Settings.");
+
+        return (binary, new CamoufoxSidecar(python, script));
     }
 
     private static FingerprintConfig AlignToCore(FingerprintConfig fp, BrowserCore core)

@@ -118,6 +118,14 @@ public sealed class Database
             c.Execute("PRAGMA user_version = 2;", transaction: tx);
             tx.Commit();
         }
+        if (version < 3)
+        {
+            using var tx = c.BeginTransaction();
+            // Stored Camoufox fingerprint config (stable identity) for the Camoufox engine.
+            c.Execute("ALTER TABLE profiles ADD COLUMN camoufox_config_json TEXT NOT NULL DEFAULT '';", transaction: tx);
+            c.Execute("PRAGMA user_version = 3;", transaction: tx);
+            tx.Commit();
+        }
     }
 
     private sealed class UtcDateTimeHandler : SqlMapper.TypeHandler<DateTime>
@@ -139,7 +147,8 @@ public sealed class Repository(Database db)
 {
     private const string ProfileCols = """
         id AS Id, name AS Name, group_id AS GroupId, proxy AS Proxy, note AS Note, startup_urls AS StartupUrls,
-        fingerprint_json AS FingerprintJson, storage_path AS StoragePath, proxy_status AS ProxyStatus,
+        fingerprint_json AS FingerprintJson, camoufox_config_json AS CamoufoxConfigJson,
+        storage_path AS StoragePath, proxy_status AS ProxyStatus,
         created_at AS CreatedAt, updated_at AS UpdatedAt, last_run_at AS LastRunAt
         """;
 
@@ -165,13 +174,14 @@ public sealed class Repository(Database db)
         p.UpdatedAt = DateTime.UtcNow;
         using var c = db.Open();
         c.Execute("""
-            INSERT INTO profiles (id, name, group_id, proxy, note, startup_urls, fingerprint_json, storage_path,
-                                  proxy_status, created_at, updated_at, last_run_at)
-            VALUES (@Id, @Name, @GroupId, @Proxy, @Note, @StartupUrls, @FingerprintJson, @StoragePath,
-                    @ProxyStatus, @CreatedAt, @UpdatedAt, @LastRunAt)
+            INSERT INTO profiles (id, name, group_id, proxy, note, startup_urls, fingerprint_json, camoufox_config_json,
+                                  storage_path, proxy_status, created_at, updated_at, last_run_at)
+            VALUES (@Id, @Name, @GroupId, @Proxy, @Note, @StartupUrls, @FingerprintJson, @CamoufoxConfigJson,
+                    @StoragePath, @ProxyStatus, @CreatedAt, @UpdatedAt, @LastRunAt)
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name, group_id = excluded.group_id, proxy = excluded.proxy, note = excluded.note,
                 startup_urls = excluded.startup_urls, fingerprint_json = excluded.fingerprint_json,
+                camoufox_config_json = excluded.camoufox_config_json,
                 storage_path = excluded.storage_path, proxy_status = excluded.proxy_status,
                 updated_at = excluded.updated_at, last_run_at = excluded.last_run_at
             """, p);

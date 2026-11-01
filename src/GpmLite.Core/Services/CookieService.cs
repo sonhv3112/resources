@@ -15,7 +15,7 @@ public static class CookieService
 
     /// <summary>Exports every cookie from a running profile to <paramref name="filePath"/> as a JSON array.
     /// Returns the number of cookies written.</summary>
-    public static async Task<int> ExportAsync(RunningBrowser? browser, string filePath, CancellationToken ct = default)
+    public static async Task<int> ExportAsync(IRunningBrowser? browser, string filePath, CancellationToken ct = default)
     {
         EnsureRunning(browser);
         var result = await browser!.SendCdpAsync("Storage.getCookies", null, ct);
@@ -27,7 +27,7 @@ public static class CookieService
 
     /// <summary>Imports cookies from a JSON file (a bare array, or an object with a <c>cookies</c> array)
     /// into a running profile. Returns the number of cookies sent.</summary>
-    public static async Task<int> ImportAsync(RunningBrowser? browser, string filePath, CancellationToken ct = default)
+    public static async Task<int> ImportAsync(IRunningBrowser? browser, string filePath, CancellationToken ct = default)
     {
         EnsureRunning(browser);
         var text = await File.ReadAllTextAsync(filePath, ct);
@@ -45,7 +45,7 @@ public static class CookieService
         return cookies.Count;
     }
 
-    private static void EnsureRunning(RunningBrowser? browser)
+    private static void EnsureRunning(IRunningBrowser? browser)
     {
         if (browser is null || !browser.IsRunning)
             throw new InvalidOperationException("Hồ sơ phải đang chạy để nhập/xuất cookie.");

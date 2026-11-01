@@ -358,18 +358,13 @@ public partial class ProfilesViewModel : ObservableObject
     // ---------- cookie / backup row actions ----------
     internal async Task ExportCookieRowAsync(ProfileRow row)
     {
-        var rb = _service.GetRunning(row.Id);
-        if (rb is null)
-        {
-            Dialogs.Notify("Xuất cookie", "Hãy mở hồ sơ trước khi xuất cookie.", error: true);
-            return;
-        }
+        // Engine-aware: Camoufox reads cookies.sqlite (works any time); Chromium uses CDP (needs the profile open).
         var path = await SaveFileAsync("Xuất cookie", $"{Sanitize(row.Name)}-cookies.json", "json",
             new FilePickerFileType("JSON") { Patterns = ["*.json"] });
         if (path is null) return;
         try
         {
-            var n = await CookieService.ExportAsync(rb, path);
+            var n = await _service.ExportCookiesAsync(row.Id, path);
             Dialogs.Notify("Xuất cookie", $"Đã xuất {n} cookie.");
         }
         catch (Exception e) { Dialogs.Notify("Lỗi", e.Message, error: true); }
@@ -377,17 +372,12 @@ public partial class ProfilesViewModel : ObservableObject
 
     internal async Task ImportCookieRowAsync(ProfileRow row)
     {
-        var rb = _service.GetRunning(row.Id);
-        if (rb is null)
-        {
-            Dialogs.Notify("Nhập cookie", "Hãy mở hồ sơ trước khi nhập cookie.", error: true);
-            return;
-        }
+        // Camoufox writes cookies.sqlite (profile must be CLOSED); Chromium uses CDP (needs the profile open).
         var path = await PickFileAsync("Nhập cookie", new FilePickerFileType("JSON") { Patterns = ["*.json"] });
         if (path is null) return;
         try
         {
-            var n = await CookieService.ImportAsync(rb, path);
+            var n = await _service.ImportCookiesAsync(row.Id, path);
             Dialogs.Notify("Nhập cookie", $"Đã nhập {n} cookie.");
         }
         catch (Exception e) { Dialogs.Notify("Lỗi", e.Message, error: true); }

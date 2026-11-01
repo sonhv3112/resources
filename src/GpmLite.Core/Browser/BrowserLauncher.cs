@@ -188,7 +188,7 @@ public static class BrowserLauncher
 }
 
 /// <summary>A live browser for one profile: process + CDP + proxy relay.</summary>
-public sealed class RunningBrowser : IAsyncDisposable
+public sealed class RunningBrowser : IRunningBrowser
 {
     private static readonly HashSet<string> PageTypes = ["page", "iframe"];
     private static readonly HashSet<string> WorkerTypes = ["worker", "service_worker", "shared_worker"];
@@ -216,7 +216,7 @@ public sealed class RunningBrowser : IAsyncDisposable
     public Task<JsonObject> SendCdpAsync(string method, object? parameters = null, CancellationToken ct = default) =>
         _cdp.SendAsync(method, parameters, ct: ct);
 
-    public event Action<RunningBrowser>? Exited;
+    public event Action<IRunningBrowser>? Exited;
     /// <summary>Non-fatal problems (an override the browser refused, a relay error...).</summary>
     public event Action<string>? Warning;
 

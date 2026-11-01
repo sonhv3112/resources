@@ -95,8 +95,8 @@
                           <MenuItem Header="Sao chép địa chỉ debug (Selenium/Puppeteer)" Command="{Binding CopyDebuggerCommand}"
                                     IsEnabled="{Binding IsRunning}" />
                           <Separator />
-                          <MenuItem Header="Xuất cookie" Command="{Binding ExportCookieCommand}" IsEnabled="{Binding IsRunning}" />
-                          <MenuItem Header="Nhập cookie" Command="{Binding ImportCookieCommand}" IsEnabled="{Binding IsRunning}" />
+                          <MenuItem Header="Xuất cookie" Command="{Binding ExportCookieCommand}" />
+                          <MenuItem Header="Nhập cookie" Command="{Binding ImportCookieCommand}" />
                           <MenuItem Header="Sao lưu" Command="{Binding BackupCommand}" />
                           <Separator />
                           <MenuItem Header="Xoá" Command="{Binding DeleteCommand}" />

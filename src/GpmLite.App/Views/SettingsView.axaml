@@ -22,6 +22,32 @@
 
       <Border Classes="card" Padding="18">
         <StackPanel>
+          <TextBlock FontWeight="SemiBold" FontSize="15" Text="Engine Camoufox (Firefox antidetect)" />
+          <CheckBox Margin="0,10,0,0" IsChecked="{Binding UseCamoufox}"
+                    Content="Dùng Camoufox thay cho Chromium (áp dụng cho mọi hồ sơ)" />
+          <StackPanel IsVisible="{Binding UseCamoufox}" Spacing="2" Margin="0,8,0,0">
+            <TextBlock Classes="label" Text="Đường dẫn Camoufox (để trống = tự phát hiện bản cài/bundled)" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Text="{Binding CamoufoxPath}" Watermark="~/Library/Caches/camoufox/Camoufox.app" />
+              <Button Grid.Column="1" Classes="ghost" Margin="8,0,0,0" Content="Chọn..." Command="{Binding BrowseCamoufoxCommand}" />
+            </Grid>
+            <TextBlock Classes="label" Margin="0,8,0,0" Text="Python (có cài package camoufox) — để trống = python3 trên PATH" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Text="{Binding PythonPath}" Watermark="/path/to/.camoufox-venv/bin/python" />
+              <Button Grid.Column="1" Classes="ghost" Margin="8,0,0,0" Content="Chọn..." Command="{Binding BrowsePythonCommand}" />
+            </Grid>
+            <TextBlock Classes="label" Margin="0,8,0,0" Text="Sidecar camoufox_sidecar.py (để trống = tự phát hiện cạnh app)" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Text="{Binding SidecarPath}" Watermark="sidecar/camoufox_sidecar.py" />
+              <Button Grid.Column="1" Classes="ghost" Margin="8,0,0,0" Content="Chọn..." Command="{Binding BrowseSidecarCommand}" />
+            </Grid>
+            <TextBlock Classes="muted" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap" Text="{Binding CamoufoxStatus}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card" Padding="18">
+        <StackPanel>
           <TextBlock FontWeight="SemiBold" FontSize="15" Text="Proxy &amp; vị trí" />
           <CheckBox Margin="0,10,0,0" IsChecked="{Binding CheckProxyOnStart}"
                     Content="Kiểm tra IP trước khi mở hồ sơ (cần cho múi giờ / ngôn ngữ / vị trí tự động)" />

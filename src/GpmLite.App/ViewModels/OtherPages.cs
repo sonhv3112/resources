@@ -279,6 +279,11 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private string _browserPath;
     [ObservableProperty] private string _detected = "";
+    [ObservableProperty] private bool _useCamoufox;
+    [ObservableProperty] private string _camoufoxPath;
+    [ObservableProperty] private string _pythonPath;
+    [ObservableProperty] private string _sidecarPath;
+    [ObservableProperty] private string _camoufoxStatus = "";
     [ObservableProperty] private string _ipLookupUrl;
     [ObservableProperty] private bool _localApiEnabled;
     [ObservableProperty] private decimal? _localApiPort;
@@ -296,6 +301,10 @@ public partial class SettingsViewModel : ObservableObject
         _onCoreChanged = onCoreChanged;
         var s = service.Settings;
         _browserPath = s.BrowserPath;
+        _useCamoufox = s.Engine == BrowserEngine.Camoufox;
+        _camoufoxPath = s.CamoufoxPath;
+        _pythonPath = s.PythonPath;
+        _sidecarPath = s.SidecarPath;
         _ipLookupUrl = s.IpLookupUrl;
         _localApiEnabled = s.LocalApiEnabled;
         _localApiPort = s.LocalApiPort;
@@ -323,7 +332,22 @@ public partial class SettingsViewModel : ObservableObject
     {
         BrowserCore? core = ChromeLocator.Find(BrowserPath);
         Detected = core is null ? "Không tìm thấy trình duyệt hợp lệ" : $"{core.ExecutablePath}  —  phiên bản {core.Version}";
+
+        var binary = string.IsNullOrWhiteSpace(CamoufoxPath) ? ChromeLocator.DefaultCamoufoxPath() : CamoufoxPath;
+        var script = string.IsNullOrWhiteSpace(SidecarPath) ? ChromeLocator.DefaultSidecarPath() : SidecarPath;
+        var binOk = binary is not null && File.Exists(binary);
+        var scrOk = script is not null && File.Exists(script);
+        CamoufoxStatus = (binOk, scrOk) switch
+        {
+            (true, true) => $"Camoufox: {binary}\nSidecar: {script}",
+            (false, _) => "Chưa tìm thấy binary Camoufox — hãy chọn đường dẫn bên dưới.",
+            (_, false) => "Chưa tìm thấy sidecar camoufox_sidecar.py — hãy chọn đường dẫn bên dưới.",
+        };
     }
+
+    partial void OnUseCamoufoxChanged(bool value) => Detect();
+    partial void OnCamoufoxPathChanged(string value) => Detect();
+    partial void OnSidecarPathChanged(string value) => Detect();
 
     [RelayCommand]
     private void Save()
@@ -331,6 +355,10 @@ public partial class SettingsViewModel : ObservableObject
         var s = _service.Settings;
         var apiChanged = s.LocalApiEnabled != LocalApiEnabled || s.LocalApiPort != (int)(LocalApiPort ?? 19995);
         s.BrowserPath = BrowserPath.Trim();
+        s.Engine = UseCamoufox ? BrowserEngine.Camoufox : BrowserEngine.Chromium;
+        s.CamoufoxPath = CamoufoxPath.Trim();
+        s.PythonPath = PythonPath.Trim();
+        s.SidecarPath = SidecarPath.Trim();
         s.IpLookupUrl = string.IsNullOrWhiteSpace(IpLookupUrl) ? ProxyChecker.DefaultLookupUrl : IpLookupUrl.Trim();
         s.LocalApiEnabled = LocalApiEnabled;
         s.LocalApiPort = (int)(LocalApiPort ?? 19995);
@@ -355,6 +383,37 @@ public partial class SettingsViewModel : ObservableObject
         }
         BrowserPath = path;
         Detect();
+    }
+
+    [RelayCommand]
+    private async Task BrowseCamoufoxAsync()
+    {
+        var path = await Dialogs.PickFileAsync("Chọn Camoufox (Camoufox.app hoặc camoufox.exe)");
+        if (path is null) return;
+        if (path.EndsWith(".app", StringComparison.OrdinalIgnoreCase) || Directory.Exists(path))
+        {
+            var macos = Path.Combine(path, "Contents", "MacOS");
+            var exe = Directory.Exists(macos)
+                ? Directory.GetFiles(macos).FirstOrDefault(f => Path.GetFileName(f).Contains("camoufox", StringComparison.OrdinalIgnoreCase))
+                  ?? Directory.GetFiles(macos).FirstOrDefault()
+                : null;
+            if (exe is not null) path = exe;
+        }
+        CamoufoxPath = path;
+    }
+
+    [RelayCommand]
+    private async Task BrowsePythonAsync()
+    {
+        var path = await Dialogs.PickFileAsync("Chọn Python có cài package camoufox");
+        if (path is not null) PythonPath = path;
+    }
+
+    [RelayCommand]
+    private async Task BrowseSidecarAsync()
+    {
+        var path = await Dialogs.PickFileAsync("Chọn camoufox_sidecar.py");
+        if (path is not null) SidecarPath = path;
     }
 
     [RelayCommand]
